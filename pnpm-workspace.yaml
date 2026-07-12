@@ -1,0 +1,7 @@
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
+overrides:
+  '@esbuild-kit/core-utils>esbuild': 0.25.12
+  postcss: 8.5.16
