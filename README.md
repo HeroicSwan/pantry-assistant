@@ -1,8 +1,12 @@
 # Food Pantry Operations Platform
 
+> ⚠️ **Work in progress.** This is an actively developed portfolio/demonstration project, not production-ready software. Features, database schema, and APIs may change without notice, and it has not been deployed or hardened for real-world use. Expect rough edges. Do not use it with real household, donor, or personal data.
+
 A full-stack web app that helps a food pantry (or a small network of pantries) run day-to-day operations: track real inventory, schedule household pickups, reserve food, forecast what's needed, and communicate with families — all with strict privacy and a permanent audit trail.
 
 Built with **Next.js 16, React 19, TypeScript, Tailwind CSS**, and **PostgreSQL 18**. It runs entirely on a local machine — no Docker, cloud account, or paid service required to try it.
+
+**Status:** 🚧 WIP · core inventory, households/pickups, forecasting, messaging, assistant, and reporting are implemented and pass typecheck/lint/build; end-to-end polish, deployment, and live provider integrations are ongoing.
 
 ---
 
