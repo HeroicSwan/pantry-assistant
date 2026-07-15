@@ -2,7 +2,7 @@
 
 ## Product purpose
 
-Food Pantry Inventory + SMS Assistant is an operations platform for accurately receiving, reserving, moving, distributing, forecasting, and reporting pantry inventory while coordinating household pickups and consent-aware SMS. Structured records and deterministic calculations are authoritative; AI retrieves, explains, drafts, and proposes but never invents or silently changes operational facts.
+Pantry Assistant is an operations platform for accurately receiving, reserving, moving, distributing, forecasting, and reporting pantry inventory while coordinating household pickups and consent-aware SMS. Structured records and deterministic calculations are authoritative; AI retrieves, explains, drafts, and proposes but never invents or silently changes operational facts.
 
 ## Product principles
 

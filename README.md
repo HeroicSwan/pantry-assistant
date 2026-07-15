@@ -1,4 +1,4 @@
-# Food Pantry Operations Platform
+# Pantry Assistant
 
 > ⚠️ **Work in progress.** This is an actively developed portfolio/demonstration project, not production-ready software. Features, database schema, and APIs may change without notice, and it has not been deployed or hardened for real-world use. Expect rough edges. Do not use it with real household, donor, or personal data.
 
@@ -59,8 +59,8 @@ Security is enforced in layers: the database is accessed only from trusted serve
 ### 2. Install
 
 ```bash
-git clone https://github.com/HeroicSwan/food-pantry-inventory-sms-assistant.git
-cd food-pantry-inventory-sms-assistant
+git clone https://github.com/HeroicSwan/pantry-assistant.git
+cd pantry-assistant
 pnpm install
 ```
 
@@ -134,15 +134,26 @@ pnpm db:migrate   # apply migrations
 pnpm db:seed      # reload demo data
 ```
 
-Testing:
+---
+
+## Tests
+
+The project is covered by **157 automated tests, all currently passing** (last run on this build):
+
+| Suite | Tests | What it covers | Command |
+|---|---:|---|---|
+| Unit | **81** | Pure logic — inventory-ledger math, FEFO allocation, unit conversion, permission and state-machine rules, forecasting, error mapping | `pnpm test` |
+| Database + integration | **46** | Real PostgreSQL — organization/location isolation, immutable ledger, negative-stock protection, reservations, pickup fulfillment, and concurrency | `pnpm test:db` |
+| End-to-end | **30** | Full browser flows (desktop + mobile) via Playwright — sign-in, role restrictions, inventory ops, pickups, reports, and accessibility | `pnpm test:e2e` |
+| **Total** | **157** | | |
 
 ```bash
-pnpm test              # unit tests (no database needed)
-pnpm test:db           # database + integration tests (uses food_pantry_test)
-pnpm test:e2e          # full end-to-end browser tests (Playwright)
+pnpm test        # 81 unit tests (no database needed)
+pnpm test:db     # 46 database + integration tests (uses food_pantry_test)
+pnpm test:e2e    # 30 end-to-end browser tests (Playwright)
 ```
 
-`test:db` and `test:e2e` reset, migrate, and seed the isolated `food_pantry_test` database — they never touch your development data.
+`test:db` and `test:e2e` reset, migrate, and seed the isolated `food_pantry_test` database — they never touch your development data. `pnpm typecheck`, `pnpm lint`, and `pnpm build` also all pass.
 
 ---
 

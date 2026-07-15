@@ -13,7 +13,7 @@ export default async function OnboardingPage() {
   return (
     <main className="min-h-screen bg-[var(--surface)]">
       <header className="grid-surface border-b border-[var(--rule)] px-6 py-8 sm:px-10 lg:px-16">
-        <p className="text-sm font-semibold">Food Pantry Operations</p>
+        <p className="text-sm font-semibold">Pantry Assistant</p>
         <div className="mt-8 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
           <h1 className="max-w-3xl text-5xl font-semibold tracking-[-0.055em] sm:text-7xl">
             Set up your organization

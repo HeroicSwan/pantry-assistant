@@ -136,7 +136,7 @@ export function AppShell({
           href={base}
           className="border-b border-[var(--ink)] pb-5 text-lg font-bold tracking-[-0.03em]"
         >
-          Food Pantry Operations
+          Pantry Assistant
         </Link>
         <div className="mt-5">
           <ScopeSwitchers
@@ -165,7 +165,7 @@ export function AppShell({
       <div className="min-w-0">
         <header className="sticky top-0 z-20 flex min-h-16 items-center justify-between border-b border-[var(--rule)] bg-white px-4 lg:hidden">
           <Link href={base} className="font-bold">
-            Food Pantry Operations
+            Pantry Assistant
           </Link>
           <details className="relative">
             <summary className="list-none border border-[var(--ink)] p-2">

@@ -18,7 +18,7 @@ export function AuthShell({
       <aside className="grid-surface border-b border-[var(--rule)] p-6 lg:border-r lg:border-b-0 lg:p-10">
         <div className="flex h-full max-w-md flex-col justify-between gap-12">
           <Link href="/" className="text-lg font-bold tracking-[-0.03em]">
-            Food Pantry Operations
+            Pantry Assistant
           </Link>
           <ol className="grid border-t border-[var(--ink)]">
             {scopeSteps.map((step, index) => (

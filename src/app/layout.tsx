@@ -3,8 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Food Pantry Operations",
-    template: "%s · Food Pantry Operations",
+    default: "Pantry Assistant",
+    template: "%s · Pantry Assistant",
   },
   description: "Secure organization and pantry location administration.",
 };
