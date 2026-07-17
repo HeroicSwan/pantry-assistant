@@ -1,7 +1,7 @@
 # Pantry Assistant
 
 ![status](https://img.shields.io/badge/status-work--in--progress-orange)
-![tests](https://img.shields.io/badge/tests-157%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-173%20passing-brightgreen)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
 ![React](https://img.shields.io/badge/React-19-149eca)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)
@@ -173,14 +173,14 @@ pnpm db:seed      # reload demo data
 
 ## Tests
 
-**157 automated tests, all passing** on the current build:
+**173 automated tests, all passing** on the current build:
 
 | Suite | Tests | Covers | Command |
 |---|---:|---|---|
-| Unit | **81** | Ledger math, FEFO allocation, unit conversion, permission & state-machine rules, forecasting, error mapping | `pnpm test` |
-| Database + integration | **46** | Org/location isolation, immutable ledger, negative-stock protection, reservations, pickup fulfillment, concurrency | `pnpm test:db` |
+| Unit | **95** | Ledger math, FEFO allocation, unit conversion, permission & state-machine rules, forecasting, error mapping, AI assistant policy/provider, env-schema validation | `pnpm test` |
+| Database + integration | **48** | Org/location isolation, immutable ledger, negative-stock protection, reservations, pickup fulfillment, concurrency, AI assistant proposal lifecycle & permission scoping | `pnpm test:db` |
 | End-to-end | **30** | Full browser flows (desktop + mobile) — sign-in, role limits, inventory, pickups, reports, accessibility | `pnpm test:e2e` |
-| **Total** | **157** | | |
+| **Total** | **173** | | |
 
 `test:db` and `test:e2e` reset, migrate, and seed the isolated `food_pantry_test` database — they never touch your development data. `pnpm typecheck`, `pnpm lint`, and `pnpm build` also pass.
 
@@ -191,7 +191,7 @@ pnpm db:seed      # reload demo data
 The app is fully usable with all of these turned off.
 
 - **SMS (Twilio)** — leave the `TWILIO_*` vars blank for simulation mode (messages recorded, never sent). Add real credentials plus a public webhook URL for live delivery; every message is re-checked against consent history first.
-- **AI assistant (OpenAI)** — leave `OPENAI_API_KEY` blank to keep it disabled. When on, it can only use fixed read tools and can only *propose* actions an authorized user must confirm.
+- **AI assistant (local Ollama)** — set `ASSISTANT_PROVIDER=ollama` and point it at a locally hosted [Ollama](https://ollama.com) server (default `qwen2.5:7b`); no data ever leaves the machine, and no external AI provider is involved. Defaults to a keyword-based router with no model at all. Either way, it can only use fixed read tools and can only *propose* actions an authorized user must confirm.
 - **Scheduled jobs** — forecast and messaging workers can run on a schedule; the job routes require a `CRON_SECRET`.
 
 ## Project layout
