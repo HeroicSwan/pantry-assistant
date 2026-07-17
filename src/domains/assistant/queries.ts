@@ -147,3 +147,34 @@ export async function listOpenAlertsForAssistant(
   `);
   return result.rows;
 }
+
+export async function listEligibleLotsForAssistant(organizationId: string, locationId: string) {
+  const result = await db.execute<{
+    id: string; item_name: string; lot_code: string | null; physical_on_hand: string; base_unit: string;
+  }>(sql`
+    select l.id, i.name as item_name, l.lot_code, coalesce(b.physical_on_hand, 0)::text as physical_on_hand, u.abbreviation as base_unit
+    from inventory_lots l
+    join inventory_items i on i.id = l.inventory_item_id
+    join units_of_measure u on u.id = i.base_unit_id
+    left join inventory_lot_balances b on b.inventory_lot_id = l.id
+    where l.organization_id = ${organizationId}::uuid and l.pantry_location_id = ${locationId}::uuid and l.status = 'active'
+    order by i.name, l.received_date
+    limit 100
+  `);
+  return result.rows;
+}
+
+export async function listUpcomingAppointmentsForAssistant(organizationId: string, locationId: string) {
+  const result = await db.execute<{
+    id: string; household_display_name: string; scheduled_start_at: string; status: string;
+  }>(sql`
+    select a.id, h.display_name as household_display_name, a.scheduled_start_at::text, a.status::text
+    from appointments a join households h on h.id = a.household_id
+    where a.organization_id = ${organizationId}::uuid and a.pantry_location_id = ${locationId}::uuid
+      and a.status in ('scheduled', 'confirmed')
+      and a.scheduled_start_at >= now()
+    order by a.scheduled_start_at asc
+    limit 40
+  `);
+  return result.rows;
+}

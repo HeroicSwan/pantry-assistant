@@ -16,6 +16,13 @@ const serverEnvironmentSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default("gpt-5-mini"),
   CRON_SECRET: optionalSecret,
+  // Operations assistant model provider. "ollama" runs entirely against a locally hosted Ollama
+  // server -- no request ever leaves the machine, unlike OPENAI_API_KEY above, which is used only
+  // for document/report generation elsewhere and is never wired into the assistant's tool router.
+  ASSISTANT_PROVIDER: z.enum(["disabled", "local-deterministic", "ollama"]).default("local-deterministic"),
+  OLLAMA_ASSISTANT_BASE_URL: z.string().url().default("http://127.0.0.1:11434"),
+  OLLAMA_ASSISTANT_MODEL: z.string().default("qwen2.5:7b"),
+  OLLAMA_ASSISTANT_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
 });
 
 const testEnvironmentSchema = z.object({
@@ -37,6 +44,10 @@ export function getServerEnvironment() {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     OPENAI_MODEL: process.env.OPENAI_MODEL,
     CRON_SECRET: process.env.CRON_SECRET,
+    ASSISTANT_PROVIDER: process.env.ASSISTANT_PROVIDER,
+    OLLAMA_ASSISTANT_BASE_URL: process.env.OLLAMA_ASSISTANT_BASE_URL,
+    OLLAMA_ASSISTANT_MODEL: process.env.OLLAMA_ASSISTANT_MODEL,
+    OLLAMA_ASSISTANT_TIMEOUT_MS: process.env.OLLAMA_ASSISTANT_TIMEOUT_MS,
   });
 }
 

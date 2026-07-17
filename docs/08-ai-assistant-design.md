@@ -4,7 +4,9 @@
 
 The assistant is a controlled interface to ordinary application services. It may retrieve authorized facts, explain deterministic calculations, summarize, draft, and create durable action proposals. It is not a database principal, inventory authority, permission system, or autonomous agent.
 
-It must not invent records or quantities, issue arbitrary SQL, select arbitrary columns, expose household data beyond the caller's task, alter stock from natural language alone, send SMS, bypass consent, or treat model confidence as forecast confidence. The application remains fully usable when OpenAI is unavailable.
+It must not invent records or quantities, issue arbitrary SQL, select arbitrary columns, expose household data beyond the caller's task, alter stock from natural language alone, send SMS, bypass consent, or treat model confidence as forecast confidence. The application remains fully usable when the language model is unavailable.
+
+**Provider: this design is implemented entirely against a locally hosted Ollama server, not a third-party API.** `ASSISTANT_PROVIDER=ollama` sends only tool-selection requests to `OLLAMA_ASSISTANT_BASE_URL` (default `http://127.0.0.1:11434`) — no operational data, prompt, or tool result ever leaves the machine. `OPENAI_API_KEY`, used elsewhere in the application for document/report generation, is never wired into the assistant's tool router. On any Ollama failure (unreachable, timeout, malformed response) the router falls back automatically to `LocalDeterministicAssistantProvider`, a keyword-based router with no model at all, so the assistant is never a single point of failure.
 
 ## Request architecture
 
@@ -21,10 +23,10 @@ It must not invent records or quantities, issue arbitrary SQL, select arbitrary 
 | Class       | Behavior                                                                          | Representative tools                                                                                                                                                                                                                                                                                                                                                                                               | Execution boundary                                                                       |
 | ----------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
 | Read-only   | Returns minimized facts/calculations; no writes except tool-run telemetry         | `get_inventory_summary`, `search_inventory_items`, `get_inventory_item_details`, `get_inventory_lot_history`, `get_inventory_transaction_history`, `get_shortage_forecast`, `get_category_forecast`, `get_expiring_inventory`, `get_active_alerts`, `get_upcoming_appointments`, `get_pickup_counts`, `get_household_pickup_status`, `get_sms_delivery_summary`, `get_recent_donations`, `get_operational_metrics` | RLS-safe query/service with permission and range caps                                    |
-| Proposal    | Stores a typed preview; no domain state or external side effect                   | `draft_sms_message`, `draft_bulk_announcement`, `create_inventory_adjustment_proposal`, `create_reservation_proposal`, `create_alert_proposal`, `create_donation_needs_report`, `create_pickup_reschedule_proposal`                                                                                                                                                                                                | Proposal service validates arguments, impact, versions, expiry                           |
-| High impact | Never exposed for automatic model invocation; invoked by explicit confirmation UI | `approve_inventory_adjustment`, `send_sms_message`, `send_bulk_sms`, `cancel_appointment`, `modify_reservation`, `update_household_record`                                                                                                                                                                                                                                                                         | Ordinary domain command after proposal ID, fresh authorization, consent/invariant checks |
+| Proposal    | Stores a typed preview; no domain state or external side effect                   | `propose_alert_acknowledgement`, `draft_sms_message`, `draft_bulk_announcement`, `create_inventory_adjustment_proposal`, `create_reservation_proposal`, `create_donation_needs_report`, `create_pickup_reschedule_proposal`                                                                                                                                                                                                | Proposal service validates arguments, impact, versions, expiry                           |
+| High impact | Never exposed for automatic model invocation; invoked by explicit confirmation UI | `transitionAlert`, `createMessageCampaign` (draft only), `recordAdjustment`, `createReservation`, `rescheduleAppointment`                                                                                                                                                                                                                                                                         | Ordinary, already-existing domain command invoked after proposal confirmation, with fresh authorization, consent/invariant checks |
 
-The high-impact names describe application commands, not model-callable tools. OpenAI receives read and proposal tools only. This structural separation prevents a prompt from directly selecting a write operation.
+The high-impact names are ordinary application domain functions, not model-callable tools -- the model never selects them directly. The local Ollama model receives read tool schemas only (`TOOL_JSON_SCHEMAS` filtered to `READ_TOOL_NAMES`); proposal tools are invoked by the deterministic proposal-creation server actions the UI calls after a human reviews a read result, never by the model itself. This structural separation prevents a prompt from directly selecting a write operation.
 
 ## Permission model
 
@@ -34,27 +36,20 @@ Read-only users receive summaries and approved reports only. Volunteers may quer
 
 ## Common schemas
 
-Every tool input and output is validated with Zod. Dates use ISO 8601, quantities are decimal strings to avoid floating-point loss, and enums are closed.
+Every tool input and output is validated with Zod (`src/domains/assistant/schemas.ts`, all `.strict()`). Dates use ISO 8601, quantities are decimal strings to avoid floating-point loss, and enums are closed. The location and organization are always derived from the caller's session scope, never accepted as tool input.
+
+Rather than a paginated cursor model, each read tool caps its own row count and lookback/horizon directly in its Zod schema (for example `get_active_alerts` caps `limit` at 50, `get_inventory_transaction_history` caps `days` at 90) — simpler than open-ended pagination and easier to reason about for a locally hosted model with a short context window.
 
 ```json
 {
-  "ToolInputContext": {
-    "locationId": "uuid within session scope",
-    "asOf": "ISO timestamp, optional",
-    "dateRange": { "from": "ISO date", "to": "ISO date" },
-    "pageSize": "integer 1..100",
-    "cursor": "opaque optional cursor"
-  },
   "ToolResultEnvelope": {
     "kind": "observed_fact | calculated_estimate | draft | proposal",
     "asOf": "ISO timestamp",
-    "dateRange": { "from": "ISO date", "to": "ISO date" },
     "location": { "id": "uuid", "name": "display name" },
     "basis": ["canonical view or algorithm version"],
     "dataWarnings": ["string"],
     "confidence": "high | medium | low | insufficient_data | not_applicable",
-    "data": "tool-specific payload",
-    "nextCursor": "opaque or null"
+    "data": "tool-specific payload"
   }
 }
 ```
@@ -82,37 +77,40 @@ Every tool input and output is validated with Zod. Dates use ISO 8601, quantitie
 | `draft_bulk_announcement`              | location/filter IDs, purpose, language variants           | content, estimated audience/exclusion/segments; audience list not returned to model            |
 | `create_inventory_adjustment_proposal` | location, lot, signed decimal quantity, reason            | proposal ID/expiry, current and projected balances, required approver, impact                  |
 | `create_reservation_proposal`          | appointment, allocation targets/quantities                | proposal ID, FEFO preview, conflicts/substitutions, expected versions                          |
-| `create_alert_proposal`                | location, allowed type/entity, explanation/recommendation | proposal ID and duplicate alert match; does not open alert automatically                       |
+| `propose_alert_acknowledgement`        | alert ID, reason 3-500 chars                               | proposal ID/expiry; requires `assistant.propose_actions` + `alert.view`                        |
 | `create_donation_needs_report`         | location, horizon, category filter                        | report proposal/snapshot using forecasts; no external publication                              |
 | `create_pickup_reschedule_proposal`    | appointment, new window/location                          | proposal ID, reservation/reminder impact, conflicts, replacement preview                       |
 
-Proposal arguments store IDs and expected versions, not just natural-language descriptions. Impact is capped: bulk proposals above configured record count require the user to narrow scope or use a dedicated reviewed bulk workflow.
+The shipped implementation caps rows/lookback/horizon directly per tool (see each tool's Zod schema and `TOOL_JSON_SCHEMAS` entry) rather than using an open-ended `cursor`/`pageSize` pagination contract; none of the read tools currently need more than one capped page for a single-location assistant. `create_inventory_adjustment_proposal` resolves the unit from the lot's item server-side and never accepts a caller- or model-supplied unit.
+
+Proposal arguments store IDs and, where the underlying record is mutable, a state fingerprint (SHA-256 of the canonicalized record) captured at proposal time. Confirmation re-fetches that record and re-fingerprints it; a mismatch marks the proposal `stale` and rejects with `CONFLICT` instead of executing against a record that moved.
 
 ## Confirmation model
 
 ```mermaid
 sequenceDiagram
   actor U as User
-  participant AI as AI route/model
-  participant TE as Tool executor
+  participant AI as Ollama (read tools only)
+  participant SA as Proposal server action
   participant P as Proposal store
   participant UI as Confirmation UI
   participant C as Domain command
   participant DB as Database
-  U->>AI: Natural-language request
-  AI->>TE: Call allowlisted proposal tool
-  TE->>TE: Authenticate, authorize, validate, minimize
-  TE->>P: Store typed preview, versions, expiry, impact
-  TE-->>AI: Proposal ID and safe summary
-  AI-->>U: Label as proposed, not completed
-  U->>UI: Open proposal preview
-  UI->>C: Explicit confirm + proposal ID + idempotency key
-  C->>C: Fresh auth, permission, consent, version, invariant checks
-  C->>DB: Execute ordinary atomic domain function + audit
-  DB-->>UI: Confirmed result or conflict
+  U->>AI: Natural-language question
+  AI->>DB: Selects and calls one read tool
+  DB-->>U: Minimized fact, shown beside the conversation
+  U->>SA: Explicitly fills a proposal form (not a chat message)
+  SA->>SA: Authenticate, authorize, validate, capture state fingerprint
+  SA->>P: Store typed preview, idempotency key, expiry
+  SA-->>U: Proposal ID and preview text; label as proposed, not completed
+  U->>UI: Open the proposal in "Action proposals"
+  UI->>C: Explicit confirm button (no chat text can trigger this)
+  C->>C: Fresh auth, permission, re-fingerprint current state, expiry checks
+  C->>DB: Execute the ordinary, already-existing domain function + audit
+  DB-->>UI: Confirmed result or CONFLICT (stale/expired)
 ```
 
-Confirmation requires a deliberate control outside the model-generated text. A typed “yes” may open the confirmation screen but does not itself execute. Proposals expire, are single-use, bind to creator/org/location/action/hash, and become `stale` if expected versions change. Bulk SMS preview additionally binds the audience query and eligibility watermark; eligibility is still reevaluated at send time.
+Confirmation requires a deliberate control outside the model-generated text — a typed "yes" cannot execute anything; only the confirm button, in the non-chat proposal list, can. The model never even sees a proposal tool: it selects only from `READ_TOOL_NAMES`, and every proposal is created by a permission-gated server action the UI calls after a human fills out a form. Proposals expire after 15 minutes, are single-use, are scoped to their creator/organization/location/conversation, and become `stale` if the underlying record's state fingerprint no longer matches what was proposed against.
 
 ## Prompt-injection defenses
 

@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { createHash } from "node:crypto";
 import { config } from "dotenv";
 import { Pool } from "pg";
 import { afterAll, describe, expect, it } from "vitest";
@@ -25,8 +26,17 @@ const ids = {
   harbor: "20000000-0000-4000-8000-000000000001",
   downtown: "30000000-0000-4000-8000-000000000001",
   admin: "10000000-0000-4000-8000-000000000001",
+  manager: "10000000-0000-4000-8000-000000000002",
+  worker: "10000000-0000-4000-8000-000000000003",
   unrelated: "10000000-0000-4000-8000-000000000007",
 };
+
+function stableUuid(value: string) {
+  const hex = createHash("sha256").update(value).digest("hex").slice(0, 32);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20)}`;
+}
+
+const beansLotId = stableUuid("lot:downtown:beans");
 
 function scope(actorId = ids.admin) {
   return {
@@ -195,6 +205,48 @@ describe.sequential("controlled assistant integration", () => {
     const { createConversation } = await import("@/domains/assistant/service");
     await expect(
       createConversation(scope(ids.unrelated), "Forbidden conversation"),
+    ).rejects.toMatchObject({ message: "FORBIDDEN" });
+  });
+
+  it("resolves the unit server-side and posts one immutable transaction when a manager confirms an inventory adjustment proposal", async () => {
+    const { createConversation, createInventoryAdjustmentProposal, confirmProposal } =
+      await import("@/domains/assistant/service");
+    const conversation = await createConversation(scope(ids.manager), "Adjustment proposal test");
+    const proposal = await createInventoryAdjustmentProposal(scope(ids.manager), conversation.id, {
+      lotId: beansLotId,
+      direction: "negative",
+      quantity: "2",
+      reasonCode: "cycle_count",
+      reason: "Physical count found two fewer cases than recorded.",
+      idempotencyKey: crypto.randomUUID(),
+    });
+    const stored = await pool.query<{ payload_snapshot: { unitId: string } }>(
+      "select payload_snapshot from ai_action_proposals where id=$1",
+      [proposal.id],
+    );
+    expect(stored.rows[0]!.payload_snapshot.unitId).toBeTruthy();
+    const result = await confirmProposal(scope(ids.manager), proposal.id);
+    expect(result).toMatchObject({ posted: true });
+    const transactionCount = await pool.query<{ count: string }>(
+      "select count(*)::text from inventory_transactions where inventory_lot_id=$1 and reason_code='cycle_count'",
+      [beansLotId],
+    );
+    expect(Number(transactionCount.rows[0]!.count)).toBe(1);
+  });
+
+  it("keeps the assistant proposal layer as its own authorization gate, separate from the underlying domain permission", async () => {
+    const { createConversation, createInventoryAdjustmentProposal } =
+      await import("@/domains/assistant/service");
+    const conversation = await createConversation(scope(ids.worker), "Worker permission scoping test");
+    await expect(
+      createInventoryAdjustmentProposal(scope(ids.worker), conversation.id, {
+        lotId: beansLotId,
+        direction: "positive",
+        quantity: "1",
+        reasonCode: "cycle_count",
+        reason: "Worker attempting to propose through the assistant despite lacking assistant.propose_actions.",
+        idempotencyKey: crypto.randomUUID(),
+      }),
     ).rejects.toMatchObject({ message: "FORBIDDEN" });
   });
 });
