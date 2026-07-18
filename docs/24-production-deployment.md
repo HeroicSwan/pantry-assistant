@@ -16,6 +16,6 @@ Password-reset and invitation emails use the optional SMTP settings (`SMTP_HOST`
 
 For LAN use, terminate HTTPS at an approved Windows reverse proxy such as IIS or Caddy, install a certificate trusted by the foodbank's devices, and set both `APP_URL` and `BETTER_AUTH_URL` to the HTTPS origin. The application cannot create a trusted certificate without access to the target LAN and its administrator approval.
 
-OpenAI is optional. When enabled, set a server-only API key and approved model. The controlled tool registry remains the database boundary; never give a model database credentials.
+The assistant is Ollama-only. Install the approved local Ollama model, set `ASSISTANT_PROVIDER=ollama`, and keep `OLLAMA_ASSISTANT_BASE_URL` on the local machine. The controlled tool registry remains the database boundary; never give the model database credentials.
 
 Back up PostgreSQL before migrations, retain point-in-time recovery where available, and test restore procedures. Rollback is application-version rollback plus a forward corrective migration—do not destructively rewrite applied migrations or immutable ledger history.

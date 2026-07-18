@@ -6,7 +6,7 @@ The assistant is a controlled interface to ordinary application services. It may
 
 It must not invent records or quantities, issue arbitrary SQL, select arbitrary columns, expose household data beyond the caller's task, alter stock from natural language alone, send SMS, bypass consent, or treat model confidence as forecast confidence. The application remains fully usable when the language model is unavailable.
 
-**Provider: this design is implemented entirely against a locally hosted Ollama server, not a third-party API.** `ASSISTANT_PROVIDER=ollama` sends only tool-selection requests to `OLLAMA_ASSISTANT_BASE_URL` (default `http://127.0.0.1:11434`) — no operational data, prompt, or tool result ever leaves the machine. `OPENAI_API_KEY`, used elsewhere in the application for document/report generation, is never wired into the assistant's tool router. On any Ollama failure (unreachable, timeout, malformed response) the router falls back automatically to `LocalDeterministicAssistantProvider`, a keyword-based router with no model at all, so the assistant is never a single point of failure.
+**Provider: this design is implemented entirely against a locally hosted Ollama server, not a third-party API.** `ASSISTANT_PROVIDER=ollama` sends only tool-selection requests to `OLLAMA_ASSISTANT_BASE_URL` (default `http://127.0.0.1:11434`) — no operational data, prompt, or tool result ever leaves the machine. On any Ollama failure (unreachable, timeout, malformed response) the router falls back automatically to `LocalDeterministicAssistantProvider`, a keyword-based safety fallback with no model at all, so the assistant is never a single point of failure.
 
 ## Request architecture
 

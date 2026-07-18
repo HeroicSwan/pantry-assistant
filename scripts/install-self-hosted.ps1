@@ -3,7 +3,7 @@ param(
   [int]$Port = 3000,
   [switch]$SeedDemoData,
   [switch]$DisableLanAccess,
-  [ValidateSet("disabled", "local-deterministic", "ollama")]
+  [ValidateSet("disabled", "ollama")]
   [string]$AssistantProvider = ""
 )
 
@@ -62,7 +62,7 @@ if (-not $authSecret) { $authSecret = New-Secret }
 $seedPassword = Get-EnvValue $envPath "SEED_USER_PASSWORD"
 if (-not $seedPassword) { $seedPassword = New-Secret }
 $assistantProvider = Get-EnvValue $envPath "ASSISTANT_PROVIDER"
-if ($assistantProvider -notin @("disabled", "local-deterministic", "ollama")) { $assistantProvider = "local-deterministic" }
+if ($assistantProvider -notin @("disabled", "ollama")) { $assistantProvider = "ollama" }
 if ($AssistantProvider) { $assistantProvider = $AssistantProvider }
 $optionalEnvNames = @("TWILIO_ACCOUNT_SID","TWILIO_AUTH_TOKEN","TWILIO_MESSAGING_SERVICE_SID","TWILIO_PHONE_NUMBER","TWILIO_WEBHOOK_BASE_URL","VONAGE_API_KEY","VONAGE_API_SECRET","PLIVO_AUTH_ID","PLIVO_AUTH_TOKEN","TELNYX_API_KEY","TELNYX_MESSAGING_PROFILE_ID","SINCH_SERVICE_PLAN_ID","SINCH_API_TOKEN","INFOBIP_BASE_URL","INFOBIP_API_KEY","BANDWIDTH_API_TOKEN","BANDWIDTH_API_SECRET","BANDWIDTH_APPLICATION_ID","BIRD_ACCESS_KEY","BIRD_WORKSPACE_ID","BIRD_CHANNEL_ID","AWS_REGION","AWS_ACCESS_KEY_ID","AWS_SECRET_ACCESS_KEY","AWS_SNS_SENDER_ID","AZURE_COMMUNICATION_CONNECTION_STRING","SMS_WEBHOOK_SECRET","SMTP_HOST","SMTP_PORT","SMTP_USER","SMTP_PASSWORD","SMTP_FROM","SMTP_SECURE")
 $optionalEnv = @{}

@@ -119,7 +119,7 @@ function buildSystemPrompt(allowedTools: readonly ReadToolName[]): string {
   ].join(" ");
 }
 
-// Calls a locally running Ollama server's OpenAI-compatible endpoint. No data leaves the machine:
+// Calls a locally running Ollama server's local chat endpoint. No data leaves the machine:
 // the request goes to OLLAMA_ASSISTANT_BASE_URL only, never a third-party API. On any failure
 // (unreachable, timeout, malformed response) this falls back to the deterministic provider so the
 // application always remains usable and never silently hangs waiting on a local model.

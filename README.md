@@ -64,7 +64,7 @@ Physical stock, reserved stock, expected demand, and forecasts are four differen
 | Data access | Drizzle ORM + version-controlled SQL migrations, **server-only** |
 | Auth | Better Auth with database-backed sessions |
 | Testing | Vitest (unit + integration) + Playwright (end-to-end) |
-| Optional providers | Twilio (SMS) and OpenAI (assistant) — both off by default |
+| Optional providers | Twilio-compatible SMS connectors and local Ollama assistant |
 
 ---
 
@@ -128,7 +128,7 @@ CREATE DATABASE food_pantry_test OWNER pantry_app;
 cp .env.example .env.local
 ```
 
-Set at least these in `.env.local` (Twilio/OpenAI can stay blank):
+Set at least these in `.env.local` (SMS credentials are optional):
 
 ```ini
 DATABASE_URL="postgresql://pantry_app:choose-a-local-password@localhost:5432/food_pantry_dev"
@@ -213,7 +213,7 @@ tests/        Vitest (unit/integration) and Playwright (e2e) suites
 
 ## Limitations
 
-- Portfolio/demo project. It's verified against a **local, native PostgreSQL** setup; a real deployment additionally needs a managed database, real secrets, backups, and (if used) live Twilio/OpenAI credentials with public callback URLs.
+- Self-hosted Windows product. A real deployment additionally needs approved secrets, backups, LAN HTTPS/TLS, and any live SMS credentials the foodbank chooses to enable.
 - Authorization is enforced in trusted server code and the database schema (constraints, triggers, a non-superuser role) rather than Postgres row-level security.
 - No per-field encryption yet (see [Security & data protection](#security--data-protection)).
 - All demo data is fictional — no real personal data, phone numbers, or messages anywhere.
