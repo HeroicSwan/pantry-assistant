@@ -9,6 +9,7 @@ import {
   assignLocationAction,
   assignRoleAction,
   changeMembershipStatusAction,
+  createCustomRoleAction,
   prepareInvitationAction,
   removeLocationAssignmentAction,
   removeRoleAction,
@@ -71,6 +72,7 @@ export default async function TeamPage({
   const invitations = teamData.invitations as InvitationRow[];
   const mayInvite = can(context.effectivePermissions, "member.invite");
   const mayAssignRoles = can(context.effectivePermissions, "role.assign");
+  const mayManageRoles = can(context.effectivePermissions, "role.manage");
   const mayUpdateMembers = can(context.effectivePermissions, "member.update");
 
   return (
@@ -90,6 +92,22 @@ export default async function TeamPage({
           roles={roles}
           locations={context.access.locations}
         />
+      ) : null}
+      {mayManageRoles ? (
+        <section className="grid gap-4 border border-[var(--rule)] bg-white p-5">
+          <div>
+            <h2 className="text-2xl font-semibold">Custom roles</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">Create an organization role from the permission catalog. Use a comma- or space-separated permission list.</p>
+          </div>
+          <ActionForm action={createCustomRoleAction.bind(null, organizationId, organizationSlug)} className="grid gap-3 md:grid-cols-2">
+            <Field label="Name" name="name" required />
+            <Field label="Slug" name="slug" placeholder="food-coordinator" required />
+            <Field label="Description" name="description" required />
+            <SelectField label="Scope" name="scope" defaultValue="organization"><option value="organization">Organization-wide</option><option value="location">Location-specific</option></SelectField>
+            <Field label="Permission keys" name="permissionKeys" placeholder="inventory.view, household.view_basic" required />
+            <div className="flex items-end"><SubmitButton>Create custom role</SubmitButton></div>
+          </ActionForm>
+        </section>
       ) : null}
       {invitations.some((invitation) => invitation.status === "pending") ? (
         <section className="grid gap-3">

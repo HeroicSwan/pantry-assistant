@@ -1,7 +1,7 @@
 # Pantry Assistant
 
-![status](https://img.shields.io/badge/status-work--in--progress-orange)
-![tests](https://img.shields.io/badge/tests-173%20passing-brightgreen)
+![status](https://img.shields.io/badge/status-v0.1.0--rc.1-blue)
+![tests](https://img.shields.io/badge/tests-176%20passing-brightgreen)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
 ![React](https://img.shields.io/badge/React-19-149eca)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)
@@ -9,7 +9,7 @@
 
 **A full-stack app that helps a food pantry (or a small network of them) run daily operations** — track real inventory, schedule household pickups, reserve food, forecast needs, and communicate with families, all with strict privacy and a permanent audit trail.
 
-> ⚠️ **Work in progress.** This is an actively developed portfolio/demonstration project — not production-ready software. Features, database schema, and APIs may change without notice, and it has not been deployed or security-hardened for real-world use. **Do not use it with real household, donor, or personal data.**
+> **Production self-hosted release candidate.** Extract the Windows package and run the installer from an elevated PowerShell window. Configure approved SMTP/SMS credentials and LAN TLS before entering real household data.
 
 ---
 
@@ -20,7 +20,7 @@
 - [Tech stack](#tech-stack)
 - [Security & data protection](#security--data-protection)
 - [Quick start](#quick-start)
-- [Demo accounts](#demo-accounts)
+- [Installation](#installation)
 - [Commands](#commands)
 - [Tests](#tests)
 - [Optional integrations](#optional-integrations)
@@ -101,7 +101,11 @@ More detail lives in [`docs/09-security-and-privacy.md`](docs/09-security-and-pr
 
 ---
 
-## Quick start
+## Installation
+
+### Foodbank installation
+
+For a downloadable Windows installation, extract the release folder and run `pnpm selfhost:setup` from an elevated PowerShell window. Setup creates the local databases, applies migrations, builds the production app, registers automatic startup, and can enable LAN access through the Windows Private-profile firewall. It does not load fictional users or data unless `-SeedDemoData` is explicitly supplied. See [`docs/27-self-hosted-windows-installation.md`](docs/27-self-hosted-windows-installation.md).
 
 **Prerequisites:** Node.js 20+ · pnpm (`npm install -g pnpm`) · PostgreSQL 18 on port 5432.
 
@@ -136,15 +140,14 @@ SEED_USER_PASSWORD="a-strong-local-demo-password"
 ```
 
 ```bash
-# 4. Migrate, seed, and run
+# 4. Migrate and run
 pnpm db:migrate   # apply all SQL migrations to a clean database
-pnpm db:seed      # load fictional demo data
 pnpm dev          # start the app on http://localhost:3000
 ```
 
 > 💡 On Windows with PostgreSQL 18 installed, `scripts/setup-native-postgres.ps1` can create the role, databases, and `.env.local` for you (it reads admin/app passwords from an ignored `.env.setup.local`).
 
-## Demo accounts
+## Development-only seed data
 
 The seed builds a fictional organization — **Harbor Community Food Pantry** — with one account per role. Sign in with any email below using the `SEED_USER_PASSWORD` you chose:
 
@@ -168,19 +171,19 @@ pnpm build        # production build
 pnpm lint         # ESLint (zero warnings allowed)
 pnpm typecheck    # strict TypeScript check
 pnpm db:migrate   # apply migrations
-pnpm db:seed      # reload demo data
+pnpm db:seed      # development-only fictional data; never use for production
 ```
 
 ## Tests
 
-**173 automated tests, all passing** on the current build:
+**176 automated tests, all passing** on the current build:
 
 | Suite | Tests | Covers | Command |
 |---|---:|---|---|
-| Unit | **95** | Ledger math, FEFO allocation, unit conversion, permission & state-machine rules, forecasting, error mapping, AI assistant policy/provider, env-schema validation | `pnpm test` |
+| Unit | **98** | Ledger math, FEFO allocation, unit conversion, permission & state-machine rules, forecasting, error mapping, AI assistant policy/provider, env-schema validation, SMS providers | `pnpm test` |
 | Database + integration | **48** | Org/location isolation, immutable ledger, negative-stock protection, reservations, pickup fulfillment, concurrency, AI assistant proposal lifecycle & permission scoping | `pnpm test:db` |
 | End-to-end | **30** | Full browser flows (desktop + mobile) — sign-in, role limits, inventory, pickups, reports, accessibility | `pnpm test:e2e` |
-| **Total** | **173** | | |
+| **Total** | **176** | | |
 
 `test:db` and `test:e2e` reset, migrate, and seed the isolated `food_pantry_test` database — they never touch your development data. `pnpm typecheck`, `pnpm lint`, and `pnpm build` also pass.
 
@@ -190,9 +193,10 @@ pnpm db:seed      # reload demo data
 
 The app is fully usable with all of these turned off.
 
-- **SMS (Twilio)** — leave the `TWILIO_*` vars blank for simulation mode (messages recorded, never sent). Add real credentials plus a public webhook URL for live delivery; every message is re-checked against consent history first.
+- **SMS providers** — leave credentials blank and use `Disabled` or `Simulation` mode for local use. Each pantry location can select Twilio, Vonage, Plivo, Telnyx, Sinch, Infobip, Bandwidth, Bird, Amazon SNS, or Azure Communication Services from Messaging settings. Live delivery requires that provider's server-only credentials and sender configuration; every message is re-checked against consent history first.
 - **AI assistant (local Ollama)** — set `ASSISTANT_PROVIDER=ollama` and point it at a locally hosted [Ollama](https://ollama.com) server (default `qwen2.5:7b`); no data ever leaves the machine, and no external AI provider is involved. Defaults to a keyword-based router with no model at all. Either way, it can only use fixed read tools and can only *propose* actions an authorized user must confirm.
 - **Scheduled jobs** — forecast and messaging workers can run on a schedule; the job routes require a `CRON_SECRET`.
+- **Advanced capabilities** — opt-in seasonal/causal forecasting, autonomous operations, PostgreSQL-backed job queues, custom report layouts, server-generated PDFs, scoped attachments, eligibility records, country compliance profiles, and controlled autonomous AI writes are documented in [`docs/28-advanced-capabilities.md`](docs/28-advanced-capabilities.md).
 
 ## Project layout
 
@@ -201,7 +205,7 @@ src/
   app/        Next.js routes (auth, dashboard, inventory, pickups, forecast, messages, reports)
   domains/    Business logic per area (inventory, pickups, forecasting, messaging, assistant, reports, admin, auth)
   lib/        Database client, auth, permissions, validation, error mapping
-drizzle/      Version-controlled SQL migrations (0000 → 0007)
+drizzle/      Version-controlled SQL migrations (0000 → 0009)
 scripts/      Database migrate / seed / setup helpers
 docs/         Architecture and per-phase implementation notes (01 → 26)
 tests/        Vitest (unit/integration) and Playwright (e2e) suites

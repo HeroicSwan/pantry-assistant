@@ -141,6 +141,8 @@ Unit coverage (`src/domains/assistant/assistant-policy.test.ts`, `src/lib/env.te
 - disabled-provider behavior;
 - `ASSISTANT_PROVIDER`/`OLLAMA_ASSISTANT_*` environment schema validation (defaults, valid `ollama` configuration, rejection of an unrecognized provider, a non-URL base URL, and an out-of-range timeout).
 
+Each user/location has a database-backed five-minute request window capped at 30 turns. `pnpm ai:retention` archives active conversations older than `AI_CONVERSATION_RETENTION_DAYS` (default 90) without deleting the immutable message history.
+
 Native PostgreSQL integration coverage (`tests/integration/assistant.test.ts`) verifies:
 
 - a scoped factual query and minimized output;

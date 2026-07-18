@@ -117,7 +117,7 @@ Normal validation commands remain `pnpm lint`, `pnpm typecheck`, `pnpm test`, `p
 ## Limitations
 
 - Reports are operational tables and summaries, not a free-form report designer.
-- CSV exports are capped at 5,000 rows per request; narrow the date range for larger datasets.
+- Interactive CSV exports are capped at 5,000 rows per request; larger datasets can be queued with `queueLargeReportExport` and processed by `pnpm reports:exports` into the local `report_export_jobs` store.
 - Print views use browser printing and do not produce server-generated PDF files.
 - Messaging reports are empty until SMS messages or inbound commands exist.
 - Combined quantities across different items are explicitly labeled as base units and should not be interpreted as equivalent food value, weight, or service units.

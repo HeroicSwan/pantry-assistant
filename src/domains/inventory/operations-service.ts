@@ -259,12 +259,16 @@ export async function createPurchasedShipment(
   actorId: string,
   organizationId: string,
   pantryLocationId: string,
-  values: { supplierName: string; supplierReference?: string | null; orderedAt?: Date | null; expectedAt?: Date | null; notes?: string | null },
+  values: { supplierName: string; supplierReference?: string | null; orderedAt?: Date | null; expectedAt?: Date | null; notes?: string | null; line?: { inventoryItemId: string; expectedQuantity: string; expectedUnitId: string; notes?: string | null } | null },
   requestId: string,
 ) {
   return db.transaction(async (tx) => {
     await requireLocationPermission(tx, actorId, pantryLocationId, "receiving.create");
-    const [shipment] = await tx.insert(purchasedShipments).values({ organizationId, pantryLocationId, ...values, status: "ordered", createdBy: actorId }).returning();
+    const { line, ...shipmentValues } = values;
+    const [shipment] = await tx.insert(purchasedShipments).values({ organizationId, pantryLocationId, ...shipmentValues, status: "ordered", createdBy: actorId }).returning();
+    if (line) {
+      await tx.execute(sql`insert into purchase_shipment_lines(organization_id,pantry_location_id,purchased_shipment_id,inventory_item_id,expected_quantity,expected_unit_id,notes) values(${organizationId},${pantryLocationId},${shipment.id},${line.inventoryItemId},${line.expectedQuantity},${line.expectedUnitId},${line.notes ?? null})`);
+    }
     await writeAudit(tx, actorId, organizationId, { action: "purchase.created", entityType: "purchased_shipment", entityId: shipment.id, locationId: pantryLocationId, requestId, newValues: { supplierName: shipment.supplierName } });
     return shipment;
   });

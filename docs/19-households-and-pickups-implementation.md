@@ -17,4 +17,4 @@ Run native PostgreSQL first, then use `pnpm db:migrate`, `pnpm db:seed`, and `pn
 
 ## Current limitations
 
-Recurring appointment storage is present, but automatic recurrence generation is intentionally not scheduled yet. Duplicate candidates are surfaced for review; a destructive household-merge workflow is not enabled. SMS consent now drives the final-phase messaging eligibility service; consent history itself remains append-only.
+Recurring appointment series now have a bounded native worker (`pnpm appointments:run-jobs`) that generates scheduled occurrences through a rolling horizon. Duplicate candidates remain review-first, while administrators with `household.merge` can perform an audited, transactional merge that moves linked operational records and marks the source as merged. SMS consent now drives the final-phase messaging eligibility service; consent history itself remains append-only.

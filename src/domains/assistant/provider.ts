@@ -188,6 +188,7 @@ export function getAssistantProvider(): AssistantProvider {
   const environment = getServerEnvironment();
   if (environment.ASSISTANT_PROVIDER === "disabled") return new DisabledAssistantProvider();
   const deterministic = new LocalDeterministicAssistantProvider();
+  if (process.env.NODE_ENV === "test") return deterministic;
   if (environment.ASSISTANT_PROVIDER === "ollama") {
     return new OllamaAssistantProvider(
       environment.OLLAMA_ASSISTANT_BASE_URL,

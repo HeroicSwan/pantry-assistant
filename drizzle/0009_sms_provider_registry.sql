@@ -1,0 +1,2 @@
+ALTER TABLE sms_settings ADD CONSTRAINT sms_settings_provider_check CHECK(provider IN('simulation','twilio','vonage','plivo','telnyx','sinch','infobip','bandwidth','bird','aws_sns','azure_communication_services'));
+ALTER TABLE sms_messages ADD CONSTRAINT sms_messages_provider_check CHECK(provider IN('simulation','twilio','vonage','plivo','telnyx','sinch','infobip','bandwidth','bird','aws_sns','azure_communication_services'));

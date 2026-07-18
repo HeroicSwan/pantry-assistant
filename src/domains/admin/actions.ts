@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import type { ActionResult } from "@/lib/action-result";
 import { getOrganizationAccessList, requireOrganizationContext, requireUser, verifyLocationPermission, verifyOrganizationPermission, type PermissionKey } from "@/lib/auth/access";
 import { getServerEnvironment } from "@/lib/env";
+import { sendTransactionalEmail } from "@/lib/email";
 import { logServerError, mapProviderError } from "@/lib/errors";
 import { safeNextPath } from "@/domains/auth/schemas";
 import {
@@ -22,6 +23,7 @@ import {
   assignMemberLocation,
   assignMemberRole,
   changeMembershipStatus,
+  createCustomRole,
   createLocation,
   prepareInvitation,
   removeMemberLocation,
@@ -134,8 +136,20 @@ export async function prepareInvitationAction(organizationId: string, organizati
   const tokenHash = createHash("sha256").update(token).digest("hex");
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   try { await prepareInvitation(currentUser.id, organizationId, parsed.data.email, parsed.data.roleId, parsed.data.locationId || null, tokenHash, expiresAt, requestId); } catch (error) { return serviceFailure("invitation.prepare", requestId, error) as ActionResult<{ acceptanceUrl: string }>; }
+  const acceptanceUrl = `${getServerEnvironment().APP_URL}/invitations/accept?token=${token}`;
+  try {
+    await sendTransactionalEmail({
+      kind: "invitation",
+      to: parsed.data.email,
+      subject: "You are invited to Pantry Assistant",
+      text: `You have been invited to join a food pantry organization in Pantry Assistant. Accept the invitation here:\n\n${acceptanceUrl}`,
+      actionUrl: acceptanceUrl,
+    });
+  } catch (error) {
+    logServerError("invitation.email", requestId, error as { code?: string; status?: number });
+  }
   revalidatePath(`/app/${organizationSlug}/team`);
-  return { ok: true, data: { acceptanceUrl: `${getServerEnvironment().APP_URL}/invitations/accept?token=${token}` }, message: "Invitation prepared. Share the secure link through an approved channel.", requestId };
+  return { ok: true, data: { acceptanceUrl }, message: "Invitation prepared. Share the secure link through an approved channel.", requestId };
 }
 
 export async function revokeInvitationAction(organizationId: string, organizationSlug: string, invitationId: string, _: ActionResult, formData: FormData): Promise<ActionResult> {
@@ -158,6 +172,17 @@ export async function assignRoleAction(organizationId: string, organizationSlug:
   try { await assignMemberRole(currentUser.id, organizationId, parsed.data.membershipId, parsed.data.roleId, parsed.data.locationId || null, parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null, requestId); } catch (error) { return serviceFailure("role.assign", requestId, error); }
   revalidatePath(`/app/${organizationSlug}/team`);
   return { ok: true, data: undefined, message: "Role assigned.", requestId };
+}
+
+export async function createCustomRoleAction(organizationId: string, organizationSlug: string, _: ActionResult, formData: FormData): Promise<ActionResult> {
+  const requestId = crypto.randomUUID();
+  const currentUser = await requireUser();
+  const denied = await authorized(organizationId, "role.manage", requestId);
+  if (denied) return denied;
+  const permissionKeys = String(formData.get("permissionKeys") ?? "").split(/[\s,]+/).map((value) => value.trim()).filter(Boolean);
+  try { await createCustomRole(currentUser.id, organizationId, { name: String(formData.get("name") ?? ""), slug: String(formData.get("slug") ?? ""), description: String(formData.get("description") ?? ""), scope: String(formData.get("scope") ?? "organization") === "location" ? "location" : "organization", permissionKeys }, requestId); } catch (error) { return serviceFailure("role.create", requestId, error); }
+  revalidatePath(`/app/${organizationSlug}/team`);
+  return { ok: true, data: undefined, message: "Custom role created.", requestId };
 }
 
 export async function removeRoleAction(organizationId: string, organizationSlug: string, assignmentId: string, _: ActionResult, formData: FormData): Promise<ActionResult> {

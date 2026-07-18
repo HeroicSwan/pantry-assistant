@@ -6,6 +6,7 @@ import { Field, SelectField, TextAreaField } from "@/components/ui/field";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { RichAssistantResult } from "@/components/assistant/rich-result";
 import {
   confirmProposalAction,
   createAlertProposalAction,
@@ -135,7 +136,7 @@ export default async function ConversationPage({
                 <code>{run.tool_name}</code> · {run.status}
               </summary>
               {run.output_snapshot ? (
-                <pre className="mt-4 max-h-96 overflow-auto bg-[var(--surface)] p-4 text-xs whitespace-pre-wrap">{JSON.stringify(run.output_snapshot, null, 2)}</pre>
+                <RichAssistantResult value={run.output_snapshot} />
               ) : (
                 <p className="mt-3 text-sm text-[var(--signal)]">No facts were returned. Error code: {run.error_code ?? "unavailable"}</p>
               )}

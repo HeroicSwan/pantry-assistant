@@ -19,7 +19,7 @@ import {
   renderMessageTemplate,
   retryDelaySeconds,
 } from "@/domains/messaging/policy";
-import { providerForMode, type InboundSmsEvent, type SmsStatusEvent } from "@/domains/messaging/provider";
+import { providerForMode, providerHasCredentials, type InboundSmsEvent, type SmsStatusEvent, type SmsProviderId } from "@/domains/messaging/provider";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Executor = Pick<typeof db, "execute">;
@@ -106,7 +106,8 @@ async function contactRecipient(executor: Executor, organizationId: string, cont
 }
 
 export async function saveMessagingSettings(actorId: string, organizationId: string, locationId: string, values: {
-  sendingMode: "disabled" | "simulation" | "twilio_test" | "live";
+  provider?: SmsProviderId;
+  sendingMode: "disabled" | "simulation" | "live";
   defaultFromNumber?: string | null;
   defaultLanguage: string;
   quietHoursStart?: string | null;
@@ -118,20 +119,21 @@ export async function saveMessagingSettings(actorId: string, organizationId: str
   confirmLive?: boolean;
 }, requestId: string) {
   return db.transaction(async (tx) => {
+    const provider = values.provider ?? "twilio";
     await requireLocationScope(tx, actorId, organizationId, locationId, "message.settings.manage");
-    if (values.sendingMode === "live" && (!values.confirmLive || !process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || (!process.env.TWILIO_MESSAGING_SERVICE_SID && !values.defaultFromNumber && !process.env.TWILIO_PHONE_NUMBER))) throw new DomainError("SMS_LIVE_CONFIGURATION_REQUIRED");
+    if (values.sendingMode === "live" && (!values.confirmLive || !providerHasCredentials(provider) || (!values.defaultFromNumber && provider !== "aws_sns"))) throw new DomainError("SMS_LIVE_CONFIGURATION_REQUIRED");
     if (values.reminderHoursBefore < 1 || values.reminderHoursBefore > 168 || values.retryLimit < 0 || values.retryLimit > 10) throw new DomainError("VALIDATION_ERROR");
     const from = values.defaultFromNumber ? normalizePhoneNumber(values.defaultFromNumber) : null;
     if (values.defaultFromNumber && !from) throw new DomainError("CONSENT_INVALID");
     const result = await tx.execute<{ id: string }>(sql`
       insert into sms_settings(organization_id,pantry_location_id,provider,sending_mode,default_from_number,default_language,quiet_hours_start,quiet_hours_end,reminder_hours_before,retry_limit,help_response,is_enabled,created_by)
-      values(${organizationId},${locationId},${values.sendingMode === "simulation" ? "simulation" : "twilio"},${values.sendingMode},${from},${values.defaultLanguage},${values.quietHoursStart || null},${values.quietHoursEnd || null},${values.reminderHoursBefore},${values.retryLimit},${values.helpResponse},${values.isEnabled},${actorId})
+      values(${organizationId},${locationId},${provider},${values.sendingMode},${from},${values.defaultLanguage},${values.quietHoursStart || null},${values.quietHoursEnd || null},${values.reminderHoursBefore},${values.retryLimit},${values.helpResponse},${values.isEnabled},${actorId})
       on conflict(organization_id,pantry_location_id) do update set provider=excluded.provider,sending_mode=excluded.sending_mode,default_from_number=excluded.default_from_number,
         default_language=excluded.default_language,quiet_hours_start=excluded.quiet_hours_start,quiet_hours_end=excluded.quiet_hours_end,
         reminder_hours_before=excluded.reminder_hours_before,retry_limit=excluded.retry_limit,help_response=excluded.help_response,is_enabled=excluded.is_enabled,updated_at=now()
       returning id
     `);
-    await writeAudit(tx, actorId, organizationId, locationId, "message.settings.updated", "sms_settings", result.rows[0].id, requestId, { sendingMode: values.sendingMode, enabled: values.isEnabled });
+    await writeAudit(tx, actorId, organizationId, locationId, "message.settings.updated", "sms_settings", result.rows[0].id, requestId, { provider, sendingMode: values.sendingMode, enabled: values.isEnabled });
     return result.rows[0];
   });
 }
@@ -216,7 +218,7 @@ export async function sendIndividualMessage(actorId: string, organizationId: str
   const result = await db.transaction(async (tx) => {
     const inserted = await tx.execute<{ id: string }>(sql`
       insert into sms_messages(organization_id,pantry_location_id,household_id,household_contact_id,consent_id,direction,message_type,status,to_phone_number,from_phone_number,body_snapshot,language,scheduled_for,queued_at,provider,idempotency_key,created_by)
-      values(${organizationId},${locationId},${preview.recipient.household_id},${preview.recipient.contact_id},${preview.eligibility.consentId},'outbound','individual_message',${scheduled ? "scheduled" : "queued"},${preview.eligibility.normalizedPhoneNumber},${settings.default_from_number},${preview.body},${preview.language},${input.scheduledFor ?? null},${scheduled ? null : new Date()},${settings.sending_mode === "simulation" ? "simulation" : "twilio"},${input.idempotencyKey},${actorId})
+      values(${organizationId},${locationId},${preview.recipient.household_id},${preview.recipient.contact_id},${preview.eligibility.consentId},'outbound','individual_message',${scheduled ? "scheduled" : "queued"},${preview.eligibility.normalizedPhoneNumber},${settings.default_from_number},${preview.body},${preview.language},${input.scheduledFor ?? null},${scheduled ? null : new Date()},${settings.sending_mode === "simulation" ? "simulation" : settings.provider},${input.idempotencyKey},${actorId})
       on conflict(organization_id,idempotency_key) do nothing returning id
     `);
     const id = inserted.rows[0]?.id ?? (await tx.execute<{ id: string }>(sql`select id from sms_messages where organization_id=${organizationId} and idempotency_key=${input.idempotencyKey}`)).rows[0]?.id;
@@ -231,7 +233,7 @@ export async function sendIndividualMessage(actorId: string, organizationId: str
 async function claimMessageForDispatch(messageId: string) {
   return db.transaction(async (tx) => {
     const message = await tx.execute<Record<string, unknown>>(sql`
-      select m.*,s.sending_mode,s.default_from_number,s.quiet_hours_start::text,s.quiet_hours_end::text,s.retry_limit,s.is_enabled,mc.status campaign_status,
+      select m.*,s.provider,s.sending_mode,s.default_from_number,s.quiet_hours_start::text,s.quiet_hours_end::text,s.retry_limit,s.is_enabled,mc.status campaign_status,
         coalesce(l.timezone,o.timezone,'UTC') timezone,h.status household_status,h.default_pantry_location_id,hc.is_active contact_active,hc.archived_at contact_archived_at,
         sc.id current_consent_id,sc.status::text current_consent_status
       from sms_messages m join sms_settings s on s.organization_id=m.organization_id and s.pantry_location_id=m.pantry_location_id
@@ -263,10 +265,11 @@ async function claimMessageForDispatch(messageId: string) {
       await tx.execute(sql`update sms_messages set status='scheduled',scheduled_for=now()+interval '30 minutes',updated_at=now() where id=${messageId}`);
       return null;
     }
-    await tx.execute(sql`update sms_messages set status='queued',queued_at=coalesce(queued_at,now()),attempt_count=attempt_count+1,updated_at=now() where id=${messageId}`);
+    await tx.execute(sql`update sms_messages set status='sending',queued_at=coalesce(queued_at,now()),attempt_count=attempt_count+1,updated_at=now() where id=${messageId}`);
     return {
       organization_id: String(row.organization_id),
       pantry_location_id: String(row.pantry_location_id),
+      provider: String(row.provider),
       sending_mode: String(row.sending_mode),
       to_phone_number: eligibility.normalizedPhoneNumber,
       body_snapshot: String(row.body_snapshot),
@@ -281,7 +284,7 @@ export async function dispatchMessage(messageId: string) {
   const row = await claimMessageForDispatch(messageId);
   if (!row) return null;
   const mode = String(row.sending_mode);
-  const result = await providerForMode(mode).sendMessage({ to: String(row.to_phone_number), body: String(row.body_snapshot), from: row.default_from_number ? String(row.default_from_number) : null, idempotencyKey: String(row.idempotency_key) });
+  const result = await providerForMode(mode, String(row.provider)).sendMessage({ to: String(row.to_phone_number), body: String(row.body_snapshot), from: row.default_from_number ? String(row.default_from_number) : null, idempotencyKey: String(row.idempotency_key) });
   await db.transaction(async (tx) => {
     await tx.execute(sql`update sms_messages set status=${result.status},provider=${result.provider},provider_message_id=coalesce(${result.providerMessageId},provider_message_id),provider_error_code=${result.errorCode ?? null},provider_error_message=${result.errorMessage ?? null},sent_at=case when ${result.status} in('sent','delivered') then coalesce(sent_at,now()) else sent_at end,delivered_at=case when ${result.status}='delivered' then coalesce(delivered_at,now()) else delivered_at end,failed_at=case when ${result.status}='failed' then now() else null end,updated_at=now() where id=${messageId}`);
     await tx.execute(sql`insert into sms_events(organization_id,pantry_location_id,sms_message_id,provider_event_id,event_type,provider_status,payload_snapshot,processed_at) values(${String(row.organization_id)},${String(row.pantry_location_id)},${messageId},${deterministicUuid(`send:${messageId}:${row.attempt_count}`)},'send_attempt',${result.status},${JSON.stringify({ simulated: result.simulated, errorCode: result.errorCode ?? null })}::jsonb,now()) on conflict(organization_id,provider_event_id) do nothing`);
@@ -424,7 +427,7 @@ export async function sendMessageCampaign(actorId: string, organizationId: strin
     for (const row of preview.eligible) {
       if (!row.eligibility.normalizedPhoneNumber) continue;
       const idempotency = deterministicUuid(`campaign:${campaignId}:${row.eligibility.normalizedPhoneNumber}`);
-      await tx.execute(sql`insert into sms_messages(organization_id,pantry_location_id,campaign_id,household_id,household_contact_id,consent_id,direction,message_type,status,to_phone_number,from_phone_number,body_snapshot,language,scheduled_for,queued_at,provider,idempotency_key,created_by) values(${organizationId},${locationId},${campaignId},${row.household_id},${row.contact_id},${row.eligibility.consentId},'outbound','bulk_announcement',${campaign.scheduled_for && new Date(campaign.scheduled_for)>new Date() ? "scheduled" : "queued"},${row.eligibility.normalizedPhoneNumber},${settings.default_from_number},${campaign.message_body_snapshot},${row.eligibility.preferredLanguage},${campaign.scheduled_for},${campaign.scheduled_for ? null : new Date()},${settings.sending_mode === "simulation" ? "simulation" : "twilio"},${idempotency},${actorId}) on conflict(organization_id,idempotency_key) do nothing`);
+      await tx.execute(sql`insert into sms_messages(organization_id,pantry_location_id,campaign_id,household_id,household_contact_id,consent_id,direction,message_type,status,to_phone_number,from_phone_number,body_snapshot,language,scheduled_for,queued_at,provider,idempotency_key,created_by) values(${organizationId},${locationId},${campaignId},${row.household_id},${row.contact_id},${row.eligibility.consentId},'outbound','bulk_announcement',${campaign.scheduled_for && new Date(campaign.scheduled_for)>new Date() ? "scheduled" : "queued"},${row.eligibility.normalizedPhoneNumber},${settings.default_from_number},${campaign.message_body_snapshot},${row.eligibility.preferredLanguage},${campaign.scheduled_for},${campaign.scheduled_for ? null : new Date()},${settings.sending_mode === "simulation" ? "simulation" : settings.provider},${idempotency},${actorId}) on conflict(organization_id,idempotency_key) do nothing`);
     }
     await writeAudit(tx, actorId, organizationId, locationId, "message.campaign.send_started", "message_campaign", campaignId, requestId, { eligible: preview.eligible.length, excluded: preview.exclusions.length });
     return true;
@@ -490,6 +493,9 @@ export async function processInboundWebhook(event: InboundSmsEvent) {
     }
     const processing = intent === "unknown" || intent === "cancellation_intent" || !contact ? "review_required" : "processed";
     await tx.execute(sql`update inbound_messages set processing_status=${processing},linked_appointment_id=${appointmentId} where id=${inboundId}`);
+    if (response) {
+      await tx.execute(sql`insert into sms_compliance_messages(organization_id,pantry_location_id,inbound_message_id,to_phone_number,from_phone_number,body_snapshot,command) values(${settings.organization_id},${settings.pantry_location_id},${inboundId},${from},${to},${response},${intent}) on conflict(inbound_message_id) do nothing`);
+    }
     await writeAudit(tx, settings.created_by, settings.organization_id, settings.pantry_location_id, `message.inbound.${intent}`, "inbound_message", inboundId, deterministicUuid(`inbound-audit:${event.providerMessageId}`), { matched: Boolean(contact), appointmentId });
     return { duplicate: false };
   });
@@ -500,7 +506,7 @@ export async function scheduleAppointmentReminders(organizationId?: string, loca
   const candidates = await db.execute<Record<string, unknown>>(sql`
     select a.id appointment_id,a.organization_id,a.pantry_location_id,a.scheduled_start_at,a.status::text appointment_status,h.id household_id,h.display_name,
       coalesce(hc.preferred_language,h.preferred_language,s.default_language,'en') language,hc.id contact_id,hc.phone_normalized,sc.id consent_id,sc.status::text consent_status,
-      mt.id template_id,mt.body template_body,l.name location_name,l.address_line_1 as address_line1,l.city,l.state_region,l.phone_number,s.default_from_number,s.sending_mode,coalesce(l.timezone,o.timezone,'UTC') timezone
+      mt.id template_id,mt.body template_body,l.name location_name,l.address_line_1 as address_line1,l.city,l.state_region,l.phone_number,s.provider,s.default_from_number,s.sending_mode,coalesce(l.timezone,o.timezone,'UTC') timezone
     from appointments a join sms_settings s on s.organization_id=a.organization_id and s.pantry_location_id=a.pantry_location_id and s.is_enabled and s.sending_mode<>'disabled'
     join households h on h.id=a.household_id and h.organization_id=a.organization_id and h.status='active'
     join pantry_locations l on l.id=a.pantry_location_id join organizations o on o.id=a.organization_id
@@ -520,16 +526,16 @@ export async function scheduleAppointmentReminders(organizationId?: string, loca
     const rendered = renderMessageTemplate(String(row.template_body), { household_name: String(row.display_name), appointment_date: start.toLocaleDateString("en-US", { timeZone: String(row.timezone) }), appointment_time: start.toLocaleTimeString("en-US", { timeZone: String(row.timezone), hour: "numeric", minute: "2-digit" }), pantry_location: String(row.location_name), pantry_address: [row.address_line1, row.city, row.state_region].filter(Boolean).join(", "), contact_phone: String(row.phone_number ?? "") });
     if (rendered.missingVariables.length || rendered.segments > 10) continue;
     const idempotency = deterministicUuid(`appointment-reminder:${row.appointment_id}:${start.toISOString()}`);
-    const result = await db.execute<{ id: string }>(sql`insert into sms_messages(organization_id,pantry_location_id,appointment_id,household_id,household_contact_id,consent_id,direction,message_type,status,to_phone_number,from_phone_number,body_snapshot,language,scheduled_for,queued_at,provider,idempotency_key,created_by) values(${String(row.organization_id)},${String(row.pantry_location_id)},${String(row.appointment_id)},${String(row.household_id)},${String(row.contact_id)},${String(row.consent_id)},'outbound','appointment_reminder','queued',${eligibility.normalizedPhoneNumber},${row.default_from_number ? String(row.default_from_number) : null},${rendered.body},${String(row.language)},now(),now(),${row.sending_mode === "simulation" ? "simulation" : "twilio"},${idempotency},null) on conflict(organization_id,idempotency_key) do nothing returning id`);
+    const result = await db.execute<{ id: string }>(sql`insert into sms_messages(organization_id,pantry_location_id,appointment_id,household_id,household_contact_id,consent_id,direction,message_type,status,to_phone_number,from_phone_number,body_snapshot,language,scheduled_for,queued_at,provider,idempotency_key,created_by) values(${String(row.organization_id)},${String(row.pantry_location_id)},${String(row.appointment_id)},${String(row.household_id)},${String(row.contact_id)},${String(row.consent_id)},'outbound','appointment_reminder','queued',${eligibility.normalizedPhoneNumber},${row.default_from_number ? String(row.default_from_number) : null},${rendered.body},${String(row.language)},now(),now(),${row.sending_mode === "simulation" ? "simulation" : String(row.provider)},${idempotency},null) on conflict(organization_id,idempotency_key) do nothing returning id`);
     if (result.rows[0]) created += 1;
   }
   return { candidates: candidates.rows.length, created };
 }
 
 export async function dispatchDueMessages(limit = 100) {
-  const due = await db.execute<{ id: string; campaign_id: string | null }>(sql`select id,campaign_id from sms_messages where status in('queued','scheduled') and (scheduled_for is null or scheduled_for<=now()) order by coalesce(scheduled_for,queued_at,created_at) limit ${Math.max(1, Math.min(limit, 500))}`);
-  let processed = 0;
-  for (const row of due.rows) if (await dispatchMessage(row.id)) processed += 1;
+  const due = await db.execute<{ id: string; campaign_id: string | null }>(sql`select id,campaign_id from sms_messages where status in('queued','scheduled') and (scheduled_for is null or scheduled_for<=now()) order by coalesce(scheduled_for,queued_at,created_at) limit ${Math.max(1, Math.min(limit, 500))} for update skip locked`);
+  const results = await Promise.all(due.rows.map((row) => dispatchMessage(row.id)));
+  const processed = results.filter(Boolean).length;
   for (const campaignId of new Set(due.rows.flatMap((row) => row.campaign_id ? [row.campaign_id] : []))) {
     const metrics = await db.execute<{ total: number; completed: number; failed: number }>(sql`select count(*)::int total,count(*) filter(where status in('sent','delivered'))::int completed,count(*) filter(where status in('failed','undelivered','excluded'))::int failed from sms_messages where campaign_id=${campaignId}`);
     const row = metrics.rows[0] ?? { total: 0, completed: 0, failed: 0 };

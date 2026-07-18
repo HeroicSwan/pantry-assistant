@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { createTwilioSignature, SimulationSmsProvider, validateTwilioWebhookRequest } from "@/domains/messaging/provider";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createTwilioSignature, providerForMode, SMS_PROVIDER_IDS, SimulationSmsProvider, validateTwilioWebhookRequest } from "@/domains/messaging/provider";
+
+afterEach(() => vi.unstubAllEnvs());
 
 describe("SMS providers", () => {
   it("never contacts a real provider in simulation mode", async () => {
@@ -26,5 +28,14 @@ describe("SMS providers", () => {
   it("rejects invalid webhook signatures", async () => {
     const request = new Request("https://pantry.example.test/api/webhooks/twilio/status", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", "x-twilio-signature": "bad" }, body: "MessageSid=SM123&MessageStatus=sent" });
     expect(await validateTwilioWebhookRequest(request, "test-token")).toBe(false);
+  });
+
+  it("registers ten provider adapters that fail safely when credentials are absent", async () => {
+    for (const name of ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "VONAGE_API_KEY", "VONAGE_API_SECRET", "PLIVO_AUTH_ID", "PLIVO_AUTH_TOKEN", "TELNYX_API_KEY", "TELNYX_MESSAGING_PROFILE_ID", "SINCH_SERVICE_PLAN_ID", "SINCH_API_TOKEN", "INFOBIP_BASE_URL", "INFOBIP_API_KEY", "BANDWIDTH_API_TOKEN", "BANDWIDTH_API_SECRET", "BANDWIDTH_APPLICATION_ID", "BIRD_ACCESS_KEY", "BIRD_WORKSPACE_ID", "BIRD_CHANNEL_ID", "AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AZURE_COMMUNICATION_CONNECTION_STRING"]) vi.stubEnv(name, "");
+    expect(SMS_PROVIDER_IDS).toHaveLength(10);
+    for (const provider of SMS_PROVIDER_IDS) {
+      const result = await providerForMode("live", provider).sendMessage({ to: "+12025550142", body: "test", from: "+12025550199", idempotencyKey: provider });
+      expect(result).toMatchObject({ provider, status: "failed", errorCode: "CONFIGURATION_MISSING" });
+    }
   });
 });
