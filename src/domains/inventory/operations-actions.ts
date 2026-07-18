@@ -100,9 +100,10 @@ export async function createDonationAction(organizationId: string, slug: string,
 
 export async function createPurchasedShipmentAction(organizationId: string, slug: string, locationId: string, _: ActionResult, formData: FormData): Promise<ActionResult> {
   const requestId = crypto.randomUUID();
-  const parsed = z.object({ supplierName: text, supplierReference: z.string().trim().max(120).optional(), notes: z.string().trim().max(1000).optional() }).safeParse(Object.fromEntries(formData));
+  const parsed = z.object({ supplierName: text, supplierReference: z.string().trim().max(120).optional(), notes: z.string().trim().max(1000).optional(), inventoryItemId: uuid.optional().or(z.literal("")), expectedQuantity: quantity.optional().or(z.literal("")), expectedUnitId: uuid.optional().or(z.literal("")) }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return invalid(requestId);
-  try { await createPurchasedShipment(await actorId(), organizationId, locationId, parsed.data, requestId); } catch (error) { return fail(requestId, error); }
+  const hasLine = Boolean(parsed.data.inventoryItemId && parsed.data.expectedQuantity && parsed.data.expectedUnitId);
+  try { await createPurchasedShipment(await actorId(), organizationId, locationId, { supplierName: parsed.data.supplierName, supplierReference: parsed.data.supplierReference, notes: parsed.data.notes, line: hasLine ? { inventoryItemId: parsed.data.inventoryItemId as string, expectedQuantity: parsed.data.expectedQuantity as string, expectedUnitId: parsed.data.expectedUnitId as string } : null }, requestId); } catch (error) { return fail(requestId, error); }
   refresh(slug, "/receiving");
   return { ok: true, data: undefined, message: "Purchased shipment created.", requestId };
 }

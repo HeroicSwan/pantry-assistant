@@ -10,6 +10,8 @@ Operational source is in `src/domains/inventory/operations-service.ts`, `operati
 
 ## Requirements and local services
 
+For foodbank distribution, use the self-hosted Windows workflow in [`docs/27-self-hosted-windows-installation.md`](27-self-hosted-windows-installation.md). It runs the built Pantry Assistant app on the foodbank PC and can allow private-LAN access without exposing PostgreSQL.
+
 Use Node.js 24+, pnpm, Git, and native PostgreSQL 18. PostgreSQL is installed at `C:\Program Files\PostgreSQL\18`, listens locally on port 5432, and starts automatically through `postgresql-x64-18`. No container engine or virtualization layer is used.
 
 The setup script is idempotent:
@@ -41,6 +43,8 @@ Database commands:
 Never use schema synchronization as a substitute for migrations. Review generated SQL, add deliberate constraints/triggers, then prove it from a clean test database.
 
 ## Service and health commands
+
+Run `pnpm appointments:run-jobs` to generate recurring pickup occurrences and `pnpm ai:retention` to archive stale assistant conversations. Both workers are bounded, local, and safe to run repeatedly.
 
 ```powershell
 Get-Service postgresql-x64-18

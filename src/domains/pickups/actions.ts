@@ -43,6 +43,7 @@ import {
   updateHousehold,
   type FulfillmentLineInput,
 } from "@/domains/pickups/service";
+import { mergeHouseholds } from "@/domains/pickups/merge-service";
 
 function validationFailure(requestId: string, message = "Review the entered information."): ActionResult {
   return { ok: false, code: "VALIDATION_ERROR", message, requestId };
@@ -132,6 +133,18 @@ export async function archiveHouseholdAction(organizationId: string, organizatio
   revalidatePath(`/app/${organizationSlug}/households`);
   revalidatePath(`/app/${organizationSlug}/households/${householdId}`);
   return { ok: true, data: undefined, message: "Household archived.", requestId };
+}
+
+export async function mergeHouseholdAction(organizationId: string, organizationSlug: string, sourceHouseholdId: string, _: ActionResult, formData: FormData): Promise<ActionResult> {
+  const requestId = crypto.randomUUID();
+  const actor = await requireUser();
+  const targetHouseholdId = String(formData.get("targetHouseholdId") ?? "");
+  const reason = String(formData.get("reason") ?? "");
+  if (!targetHouseholdId || !reason.trim()) return validationFailure(requestId, "Choose a target household and provide a merge reason.");
+  try { await mergeHouseholds(actor.id, organizationId, sourceHouseholdId, targetHouseholdId, reason, requestId); }
+  catch (error) { return serviceFailure("household.merge", requestId, error); }
+  revalidatePath(`/app/${organizationSlug}/households`);
+  redirect(`/app/${organizationSlug}/households/${targetHouseholdId}`);
 }
 
 export async function addContactAction(organizationId: string, organizationSlug: string, _: ActionResult, formData: FormData): Promise<ActionResult> {

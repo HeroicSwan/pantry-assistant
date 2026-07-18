@@ -28,7 +28,8 @@ export const campaignSchema = z.object({
 });
 
 export const messagingSettingsSchema = z.object({
-  sendingMode: z.enum(["disabled", "simulation", "twilio_test", "live"]),
+  provider: z.enum(["twilio", "vonage", "plivo", "telnyx", "sinch", "infobip", "bandwidth", "bird", "aws_sns", "azure_communication_services"]),
+  sendingMode: z.enum(["disabled", "simulation", "live"]),
   defaultFromNumber: z.string().trim().max(32).optional(),
   defaultLanguage: z.string().trim().min(2).max(12),
   quietHoursStart: z.string().optional(),

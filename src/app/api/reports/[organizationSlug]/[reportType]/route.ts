@@ -1,9 +1,31 @@
 import { z } from "zod";
-import { createCsv, isReportType, parseReportFilters } from "@/domains/reports/policy";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { createCsv, isReportType, parseReportFilters, type ReportColumn } from "@/domains/reports/policy";
 import { getAuthorizedReport, recordReportExport, ReportError } from "@/domains/reports/service";
 import { getCurrentUser } from "@/lib/auth/access";
 
 export const dynamic = "force-dynamic";
+
+async function createReportPdf(title: string, columns: readonly ReportColumn[], rows: Record<string, unknown>[], subtitle: string) {
+  const document = await PDFDocument.create();
+  const font = await document.embedFont(StandardFonts.Helvetica);
+  const bold = await document.embedFont(StandardFonts.HelveticaBold);
+  let page = document.addPage();
+  let y = page.getHeight() - 48;
+  const margin = 36;
+  const lineHeight = 14;
+  const write = (text: string, size: number, useBold = false) => {
+    if (y < 48) { page = document.addPage(); y = page.getHeight() - 48; }
+    page.drawText(text.slice(0, 150), { x: margin, y, size, font: useBold ? bold : font, color: rgb(0.08, 0.1, 0.12) });
+    y -= lineHeight;
+  };
+  write(title, 16, true);
+  write(subtitle, 9);
+  y -= 6;
+  write(columns.map((column) => column.label).join(" | "), 8, true);
+  for (const row of rows) write(columns.map((column) => String(row[column.key] ?? "")).join(" | "), 7);
+  return document.save();
+}
 
 export async function GET(request: Request, { params }: { params: Promise<{ organizationSlug: string; reportType: string }> }) {
   const currentUser = await getCurrentUser();
@@ -17,9 +39,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ orga
   try { filters = parseReportFilters(Object.fromEntries(url.searchParams), new Date(), reportType); }
   catch { return Response.json({ error: "The report filters are invalid." }, { status: 400 }); }
   try {
-    const result = await getAuthorizedReport({ actorUserId: currentUser.id, organizationSlug, locationId: location.data, reportType, filters, mode: "export" });
+    const format = url.searchParams.get("format") === "pdf" ? "pdf" : "csv";
+    const result = await getAuthorizedReport({ actorUserId: currentUser.id, organizationSlug, locationId: location.data, reportType, filters, mode: format === "pdf" ? "print" : "export" });
     const requestId = crypto.randomUUID();
-    await recordReportExport({ actorUserId: currentUser.id, scope: result.scope, reportType, filters, rowCount: result.data.rows.length, requestId });
+    await recordReportExport({ actorUserId: currentUser.id, scope: result.scope, reportType, filters, rowCount: result.data.rows.length, requestId, format });
+    if (format === "pdf") {
+      const pdf = await createReportPdf(`${result.scope.organizationName} · ${reportType}`, result.data.columns, result.data.rows, `${result.scope.locationName} · ${filters.dateFrom} through ${filters.dateTo}`);
+      return new Response(Buffer.from(pdf), { status: 200, headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${reportType}-${filters.dateFrom}-${filters.dateTo}.pdf"`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", "X-Request-Id": requestId } });
+    }
     const csv = createCsv(result.data.columns, result.data.rows);
     const filename = `${reportType}-${filters.dateFrom}-${filters.dateTo}.csv`;
     return new Response(csv, {
@@ -41,4 +68,3 @@ export async function GET(request: Request, { params }: { params: Promise<{ orga
     return Response.json({ error: "The report could not be exported." }, { status: 500 });
   }
 }
-

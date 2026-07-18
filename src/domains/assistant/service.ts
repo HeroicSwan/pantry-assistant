@@ -177,6 +177,14 @@ export async function createConversation(scope: Scope, title: string) {
 export async function runAssistantTurn(scope: Scope, conversationId: string, rawPrompt: string) {
   await requireScope(scope);
   await requireConversation(scope, conversationId);
+  const rate = await db.execute<{ request_count: number }>(sql`
+    insert into ai_rate_limit_windows(user_id, organization_id, pantry_location_id, window_start, request_count)
+    values (${scope.actorId}::uuid, ${scope.organizationId}::uuid, ${scope.locationId}::uuid, to_timestamp(floor(extract(epoch from now()) / 300) * 300), 1)
+    on conflict(user_id, organization_id, pantry_location_id, window_start)
+    do update set request_count = ai_rate_limit_windows.request_count + 1, updated_at = now()
+    returning request_count
+  `);
+  if ((rate.rows[0]?.request_count ?? 0) > 30) throw new DomainError("ASSISTANT_RATE_LIMITED");
   const prompt = assistantPromptSchema.parse(rawPrompt);
   const provider = getAssistantProvider();
   const decision = await provider.respond({ prompt, allowedTools: READ_TOOL_NAMES });

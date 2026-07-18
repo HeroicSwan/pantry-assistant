@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, count, eq, gt, isNull, ne, or } from "drizzle-orm";
+import { and, count, eq, gt, isNull, ne, or, sql } from "drizzle-orm";
 import type { z } from "zod";
 import type {
   locationSchema,
@@ -17,6 +17,8 @@ import {
   organizationMemberships,
   organizations,
   pantryLocations,
+  permissions,
+  rolePermissions,
   roles,
   user,
   userProfiles,
@@ -48,6 +50,18 @@ export async function updateOwnProfile(actorId: string, values: ProfileInput) {
   await db.transaction(async (transaction) => {
     await transaction.update(userProfiles).set({ displayName: values.displayName, firstName: values.firstName || null, lastName: values.lastName || null, phoneNumber: values.phoneNumber || null, preferredLocale: values.preferredLocale }).where(eq(userProfiles.id, actorId));
     await transaction.update(user).set({ name: values.displayName }).where(eq(user.id, actorId));
+  });
+}
+
+export async function createCustomRole(actorId: string, organizationId: string, input: { name: string; slug: string; description: string; scope: "organization" | "location"; permissionKeys: string[] }, requestId: string) {
+  return db.transaction(async (transaction) => {
+    await requireOrganizationPermission(transaction, actorId, organizationId, "role.manage");
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(input.slug) || input.name.trim().length < 2 || input.permissionKeys.length > 200) throw new DomainError("VALIDATION_ERROR");
+    const [role] = await transaction.insert(roles).values({ organizationId, name: input.name.trim(), slug: input.slug, description: input.description.trim(), scope: input.scope, isSystemRole: false, isEditable: true, createdBy: actorId }).returning();
+    const permissionRows = input.permissionKeys.length ? await transaction.select({ id: permissions.id }).from(permissions).where(sql`key = any(${input.permissionKeys}::text[])`) : [];
+    if (permissionRows.length) await transaction.insert(rolePermissions).values(permissionRows.map((permission) => ({ roleId: role.id, permissionId: permission.id })));
+    await transaction.insert(auditLogs).values({ organizationId, actorUserId: actorId, actorMembershipId: await actorMembership(transaction, actorId, organizationId), action: "role.created", entityType: "role", entityId: role.id, requestId, newValues: { name: role.name, slug: role.slug, scope: role.scope, permissionCount: permissionRows.length } });
+    return role;
   });
 }
 

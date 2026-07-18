@@ -57,6 +57,34 @@
       "when": 1783827300000,
       "tag": "0007_messaging_ai_reports",
       "breakpoints": false
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1783900000000,
+      "tag": "0008_operational_expansion",
+      "breakpoints": false
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1783980000000,
+      "tag": "0009_sms_provider_registry",
+      "breakpoints": false
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1783981000000,
+      "tag": "0010_advanced_capabilities",
+      "breakpoints": false
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1783982000000,
+      "tag": "0011_production_sms_modes",
+      "breakpoints": false
     }
   ]
 }

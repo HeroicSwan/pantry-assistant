@@ -15,7 +15,7 @@ export class ReportError extends Error {
   }
 }
 
-type ResolvedScope = ReportScope & { organizationName: string; organizationSlug: string; locationName: string };
+export type ResolvedScope = ReportScope & { organizationName: string; organizationSlug: string; locationName: string };
 
 async function resolveScope(organizationSlug: string, locationId: string): Promise<ResolvedScope> {
   const [scope] = await db.execute<ResolvedScope>(sql`
@@ -58,6 +58,18 @@ export async function getAuthorizedReport(input: {
   return { scope, data };
 }
 
+export async function queueLargeReportExport(input: { actorUserId: string; scope: ResolvedScope; reportType: ReportType; filters: ReportFilters }) {
+  const definition = reportDefinitions[input.reportType];
+  await requirePermission(input.actorUserId, input.scope, "report.export");
+  await requirePermission(input.actorUserId, input.scope, definition.permission);
+  const result = await db.execute<{ id: string }>(sql`
+    insert into report_export_jobs(organization_id,pantry_location_id,report_type,format,date_from,date_to,filters,requested_by)
+    values(${input.scope.organizationId}::uuid,${input.scope.locationId}::uuid,${input.reportType},'csv',${input.filters.dateFrom}::date,${input.filters.dateTo}::date,${JSON.stringify(auditFilters(input.filters))}::jsonb,${input.actorUserId}::uuid)
+    returning id
+  `);
+  return result.rows[0];
+}
+
 function auditFilters(filters: ReportFilters) {
   return {
     dateFrom: filters.dateFrom,
@@ -82,6 +94,7 @@ export async function recordReportExport(input: {
   filters: ReportFilters;
   rowCount: number;
   requestId: string;
+  format?: "csv" | "pdf";
 }) {
   return db.transaction(async (tx) => {
     const [membership] = await tx.execute<{ id: string }>(sql`
@@ -93,14 +106,14 @@ export async function recordReportExport(input: {
     const filters = auditFilters(input.filters);
     const [created] = await tx.execute<{ id: string }>(sql`
       insert into report_exports(organization_id,pantry_location_id,report_type,format,date_from,date_to,filters,row_count,generated_by,request_id)
-      values(${input.scope.organizationId}::uuid,${input.scope.locationId}::uuid,${input.reportType},'csv',${input.filters.dateFrom}::date,${input.filters.dateTo}::date,${JSON.stringify(filters)}::jsonb,${input.rowCount},${input.actorUserId}::uuid,${input.requestId}::uuid)
+      values(${input.scope.organizationId}::uuid,${input.scope.locationId}::uuid,${input.reportType},${input.format ?? "csv"},${input.filters.dateFrom}::date,${input.filters.dateTo}::date,${JSON.stringify(filters)}::jsonb,${input.rowCount},${input.actorUserId}::uuid,${input.requestId}::uuid)
       returning id
     `).then((result) => result.rows);
     await tx.execute(sql`
       insert into audit_logs(organization_id,location_id,actor_user_id,actor_membership_id,action,entity_type,entity_id,request_id,new_values,metadata)
       values(${input.scope.organizationId}::uuid,${input.scope.locationId}::uuid,${input.actorUserId}::uuid,${membership.id}::uuid,
         'report.exported','report_export',${created!.id}::uuid,${input.requestId}::uuid,
-        ${JSON.stringify({ reportType: input.reportType, format: "csv", rowCount: input.rowCount })}::jsonb,
+        ${JSON.stringify({ reportType: input.reportType, format: input.format ?? "csv", rowCount: input.rowCount })}::jsonb,
         ${JSON.stringify({ filters })}::jsonb)
     `);
     return created!;
@@ -108,4 +121,3 @@ export async function recordReportExport(input: {
 }
 
 export type AuthorizedReport = { scope: ResolvedScope; data: ReportData };
-

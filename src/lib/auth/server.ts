@@ -5,8 +5,8 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/lib/database/client";
 import * as schema from "@/lib/database/schema";
-import { developmentMessages } from "@/lib/database/schema";
 import { getServerEnvironment } from "@/lib/env";
+import { sendTransactionalEmail } from "@/lib/email";
 
 const environment = getServerEnvironment();
 
@@ -21,9 +21,11 @@ export const auth = betterAuth({
     maxPasswordLength: 128,
     revokeSessionsOnPasswordReset: true,
     sendResetPassword: async ({ user, url }) => {
-      await db.insert(developmentMessages).values({
+      await sendTransactionalEmail({
         kind: "password_reset",
-        recipient: user.email.toLowerCase(),
+        to: user.email,
+        subject: "Reset your Pantry Assistant password",
+        text: `Use this link to reset your Pantry Assistant password:\n\n${url}`,
         actionUrl: url,
       });
     },

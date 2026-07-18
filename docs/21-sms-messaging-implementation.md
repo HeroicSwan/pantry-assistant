@@ -6,11 +6,15 @@ Prompt 7 adds a consent-first SMS subsystem without changing the application’s
 
 SMS is not an authorization channel. Incoming free-form text cannot invoke arbitrary application operations.
 
+## Provider registry
+
+Each pantry location can select one provider while retaining the same consent, quiet-hours, idempotency, retry, audit, and server-side authorization pipeline. The registry includes Twilio, Vonage, Plivo, Telnyx, Sinch, Infobip, Bandwidth, Bird, Amazon SNS, and Azure Communication Services. Simulation remains the safe default and does not contact any provider. Provider credentials are server-only environment variables; the settings page stores only the selected provider and operational mode.
+
 ## Provider modes
 
 - `disabled` prevents new dispatches.
-- `simulation` is the development default. It creates normal message/event records but never makes a network request.
-- `twilio_test` uses the Twilio REST endpoint with server-only test credentials.
+- `simulation` is the safe default. It creates normal message/event records but never makes a network request.
+- `live` uses the selected provider's server-only credentials after explicit administrator confirmation and consent checks.
 - `live` requires administrator permission, explicit confirmation, complete server credentials, and a configured sender or Messaging Service.
 
 The provider boundary uses the built-in `fetch` API rather than coupling business services to a vendor SDK. Provider acceptance is recorded as acceptance; it is never reported as delivery. Simulation messages are visibly labeled with provider `simulation`.
@@ -71,7 +75,11 @@ The trusted routes are:
 - `/api/webhooks/twilio/inbound`
 - `/api/webhooks/twilio/status`
 
+The provider-neutral routes `/api/webhooks/sms/{provider}/status` and `/api/webhooks/sms/{provider}/inbound` accept normalized JSON or form payloads when the deployment's webhook relay supplies `X-Pantry-Webhook-Secret` (stored as `SMS_WEBHOOK_SECRET`). Twilio continues to use native signature verification. Provider consoles may require a small relay to add the shared secret; never disable webhook authentication.
+
 Both require a valid `X-Twilio-Signature`. Validation uses the exact configured public URL, sorted form parameters, HMAC-SHA1, and constant-time comparison. Forwarded host headers are not trusted. Only a minimized provider payload is retained.
+
+Inbound STOP/START/HELP and confirmation acknowledgements are also recorded in the append-only `sms_compliance_messages` table, separate from operational outbound campaigns. Dispatch claims queued rows as `sending` and processes a bounded batch concurrently with `SKIP LOCKED`; the same consent, idempotency, and retry rules remain in force.
 
 Inbound provider IDs and status-event fingerprints are unique, so replayed webhooks do not repeat side effects. Compliance commands are case-insensitive and processed before appointment language:
 
