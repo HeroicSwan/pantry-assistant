@@ -220,4 +220,4 @@ tests/        Vitest (unit/integration) and Playwright (e2e) suites
 
 ## License
 
-No license is currently specified — all rights reserved by the author unless a `LICENSE` file is added.
+Pantry Assistant is licensed under the [MIT License](LICENSE).
