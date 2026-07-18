@@ -10,7 +10,7 @@ The application continues to use native PostgreSQL and trusted server-only acces
 
 1. A signed-in user opens a conversation bound to their current organization and pantry location.
 2. The server derives the actor, organization, and location. Neither prompt text nor tool input may supply a different organization or location.
-3. `getAssistantProvider()` selects a provider based on `ASSISTANT_PROVIDER`: `ollama` (local model, tool-calling), `local-deterministic` (keyword router, no model, the default), or `disabled`.
+3. `getAssistantProvider()` selects `ollama` (local model, tool-calling) or `disabled`. The deterministic provider remains an internal safety fallback when Ollama is unavailable.
 4. A fixed server registry (`ASSISTANT_TOOL_REGISTRY` in `src/domains/assistant/tools.ts`) validates tool input with strict Zod schemas and rejects unknown fields.
 5. Each read tool independently rechecks `assistant.use` and its domain permission before querying.
 6. A fresh canonical PostgreSQL query returns a capped, minimized result with its location, timestamp, basis, warnings, and confidence classification.
@@ -22,7 +22,7 @@ The application continues to use native PostgreSQL and trusted server-only acces
 
 `AssistantProvider` is an internal abstraction (`src/domains/assistant/provider.ts`). Three implementations exist:
 
-- **`OllamaAssistantProvider`** (`ASSISTANT_PROVIDER=ollama`) calls a locally running Ollama server's OpenAI-compatible `POST {OLLAMA_ASSISTANT_BASE_URL}/v1/chat/completions` endpoint with `tools`/`tool_choice:"auto"`, restricted to the 15 read-tool schemas. The system prompt instructs the model to never answer from its own knowledge and to only ever select one tool. On any failure — unreachable server, non-OK response, timeout (`OLLAMA_ASSISTANT_TIMEOUT_MS`, default 30s), or a malformed tool call — it falls back automatically to the deterministic provider rather than hanging or erroring. No data ever leaves the machine: the base URL defaults to `http://127.0.0.1:11434` and is never a third-party endpoint. `OPENAI_API_KEY`, used elsewhere in the application for document/report generation, is never wired into this router.
+- **`OllamaAssistantProvider`** (`ASSISTANT_PROVIDER=ollama`) calls the local Ollama server's `POST {OLLAMA_ASSISTANT_BASE_URL}/v1/chat/completions` endpoint with the restricted 15 read-tool schemas. The system prompt instructs the model to never answer from its own knowledge and to only ever select one tool. On any failure — unreachable server, non-OK response, timeout (`OLLAMA_ASSISTANT_TIMEOUT_MS`, default 30s), or a malformed tool call — it falls back automatically to the deterministic safety provider rather than hanging or erroring. No data ever leaves the machine: the base URL defaults to `http://127.0.0.1:11434`.
 - **`LocalDeterministicAssistantProvider`** (default, and the automatic fallback) selects an allowlisted read tool by keyword match for all 15 read tools. It never fabricates a database fact and requires no model at all.
 - **`DisabledAssistantProvider`** (`ASSISTANT_PROVIDER=disabled`) reports provider unavailability while leaving the core application and approved read-tool UI usable.
 

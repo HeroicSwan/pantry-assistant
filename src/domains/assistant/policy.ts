@@ -190,7 +190,7 @@ export function toolOutputIsMinimized(value: unknown): boolean {
 }
 
 // --- Ollama tool-calling schemas ------------------------------------------------------------
-// OpenAI-compatible `tools` entries sent to the local model. These describe only the tool
+// Ollama `tools` entries sent to the local model. These describe only the tool
 // surface (name, description, JSON Schema for arguments) -- never database schema, credentials,
 // or anything about how a tool is implemented server-side.
 

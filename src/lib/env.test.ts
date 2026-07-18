@@ -21,7 +21,7 @@ describe("assistant provider environment schema", () => {
   it("defaults to the local deterministic provider with no Ollama configuration required", () => {
     stubEnv({});
     const environment = getServerEnvironment();
-    expect(environment.ASSISTANT_PROVIDER).toBe("local-deterministic");
+    expect(environment.ASSISTANT_PROVIDER).toBe("ollama");
     expect(environment.OLLAMA_ASSISTANT_BASE_URL).toBe("http://127.0.0.1:11434");
     expect(environment.OLLAMA_ASSISTANT_MODEL).toBe("qwen2.5:7b");
     expect(environment.OLLAMA_ASSISTANT_TIMEOUT_MS).toBe(30_000);
@@ -41,7 +41,7 @@ describe("assistant provider environment schema", () => {
   });
 
   it("rejects an unrecognized provider value", () => {
-    stubEnv({ ASSISTANT_PROVIDER: "openai" });
+    stubEnv({ ASSISTANT_PROVIDER: "remote-provider" });
     expect(() => getServerEnvironment()).toThrow();
   });
 

@@ -17,14 +17,14 @@ Setup asks only for the local PostgreSQL administrator password. It creates or r
 
 For a training workstation only, add `-SeedDemoData` to load the reserved fictional accounts and records. Never use that switch for a foodbank's production database.
 
-Use `pnpm selfhost:setup -- --AssistantProvider ollama` to enable the local Ollama provider during setup, or use `disabled` to turn the assistant off. The default `local-deterministic` provider needs no model and keeps the application usable when Ollama is stopped.
+Ollama is the only model provider. Use `pnpm selfhost:setup -- --AssistantProvider ollama` to enable it during setup, or use `disabled` to turn the assistant off. If Ollama is stopped, the app uses its internal deterministic safety fallback for approved read queries.
 
 The application starts at `http://localhost:3000`. When LAN access is enabled, other computers on the same private network use `http://<foodbank-pc-name>:3000`. Do not expose the port directly to the public internet.
 
 ## Optional integrations
 
 - SMS is controlled per organization/location from Messaging settings. `Disabled` and `Safe simulation` never contact a provider. `Live provider` requires server-only credentials, a sender, consent records, and provider webhook configuration.
-- The assistant provider is controlled by `ASSISTANT_PROVIDER`: `disabled`, `local-deterministic`, or `ollama`. The deterministic provider requires no model. Ollama is local-only and may be stopped without affecting core operations.
+- The assistant provider is controlled by `ASSISTANT_PROVIDER`: `disabled` or `ollama`. Ollama is local-only and may be stopped without affecting core operations.
 - Email delivery is disabled until an approved email provider is configured. Password reset and invitation records remain server-side; no provider credential is required for local use.
 
 ## Start, stop, and update

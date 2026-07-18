@@ -5,7 +5,7 @@ Reviewed boundaries include authentication, session resolution, organization/loc
 Critical protections:
 
 - Server operations authorize independently through effective permissions.
-- Database, Twilio, OpenAI, and cron secrets never use public environment variables.
+- Database, Twilio, Ollama, SMTP, and cron secrets never use public environment variables.
 - SMS eligibility is derived from the latest consent event; opt-outs block retries and future sends.
 - Provider events and inbound IDs are deduplicated; terminal message contents are immutable.
 - The assistant has no arbitrary SQL/tool execution and no autonomous message or inventory mutation.
