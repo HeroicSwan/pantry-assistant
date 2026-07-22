@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ui/action-form";
 import { Field, SelectField } from "@/components/ui/field";
@@ -28,6 +29,7 @@ export default async function OrganizationSettingsPage({
         eyebrow="Organization"
         title="Organization settings"
         description="Update operational contact and locale information. The organization slug is immutable in version one so existing routes remain stable."
+        actions={<Link className="inline-flex min-h-11 items-center rounded-xl border border-[var(--ink)] bg-white px-4 text-sm font-semibold shadow-sm" href={`/app/${organizationSlug}/settings/system`}>Health and recovery</Link>}
       />
       <ActionForm
         action={action}

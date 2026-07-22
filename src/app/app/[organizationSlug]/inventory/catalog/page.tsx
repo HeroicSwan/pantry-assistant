@@ -6,7 +6,7 @@ import { Field, SelectField, TextAreaField } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { can, requireOrganizationContext } from "@/lib/auth/access";
 import { listCategories, listItemsWithBalances, listUnits } from "@/domains/inventory/queries";
-import { createCategoryAction, createItemAction, createUnitAction } from "@/domains/inventory/actions";
+import { createCategoryAction, createItemAction, createUnitAction, importCatalogCsvAction } from "@/domains/inventory/actions";
 
 export default async function CatalogPage({ params }: { params: Promise<{ organizationSlug: string }> }) {
   const { organizationSlug } = await params;
@@ -30,6 +30,7 @@ export default async function CatalogPage({ params }: { params: Promise<{ organi
       />
 
       {mayManage ? (
+        <>
         <section className="grid gap-6 lg:grid-cols-3">
           <article className="border border-[var(--rule)] bg-white p-6">
             <h2 className="text-xl font-semibold">New unit</h2>
@@ -84,6 +85,16 @@ export default async function CatalogPage({ params }: { params: Promise<{ organi
             )}
           </article>
         </section>
+        <section className="border border-[var(--rule)] bg-white p-6">
+          <h2 className="text-xl font-semibold">Import a spreadsheet catalog</h2>
+          <p className="mt-2 max-w-3xl text-sm text-[var(--muted)]">Bring over a starter item catalog from Excel or another pantry system. The import creates missing categories and units, adds new items only, and rolls back the entire file if any row is invalid. Existing items are never changed.</p>
+          <ActionForm action={importCatalogCsvAction.bind(null, organizationId, organizationSlug)} className="mt-5 grid max-w-2xl gap-4">
+            <Field label="Catalog CSV" name="catalogCsv" type="file" accept=".csv,text/csv" required hint="Maximum 1 MB and 1,000 rows. Export your spreadsheet as CSV first." />
+            <p className="rounded-xl bg-[var(--paper)] p-3 font-mono text-xs text-[var(--muted)]">name,sku,category,base_unit,unit_dimension,tracks_expiration<br />Canned black beans,BEAN-15,Canned goods,each,count,true</p>
+            <SubmitButton>Validate and import catalog</SubmitButton>
+          </ActionForm>
+        </section>
+        </>
       ) : (
         <p className="text-sm text-[var(--muted)]">You can view the catalog. Item management requires the inventory catalog permission.</p>
       )}

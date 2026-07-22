@@ -2,7 +2,11 @@ import { defineConfig, devices } from "@playwright/test";
 import { config } from "dotenv";
 
 config({ path: ".env.local", quiet: true });
-if (!process.env.TEST_DATABASE_URL) throw new Error("TEST_DATABASE_URL is required for browser tests.");
+if (!process.env.TEST_DATABASE_URL)
+  throw new Error("TEST_DATABASE_URL is required for browser tests.");
+const e2ePort = Number(process.env.PLAYWRIGHT_PORT ?? 3101);
+const baseURL =
+  process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${e2ePort}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -11,7 +15,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: "html",
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000",
+    baseURL,
     trace: "on-first-retry",
   },
   projects: [
@@ -21,9 +25,9 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_SKIP_WEBSERVER
     ? undefined
     : {
-        command: "pnpm start",
-        url: "http://localhost:3000",
-        reuseExistingServer: !process.env.CI,
+        command: `pnpm exec next start --hostname 127.0.0.1 --port ${e2ePort}`,
+        url: baseURL,
+        reuseExistingServer: false,
         timeout: 120_000,
         env: { DATABASE_URL: process.env.TEST_DATABASE_URL },
       },

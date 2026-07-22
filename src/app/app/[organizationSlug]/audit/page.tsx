@@ -85,13 +85,14 @@ export default async function AuditPage({
         </Button>
       </form>
       <div className="overflow-x-auto border border-[var(--rule)] bg-white">
-        <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+        <table className="w-full min-w-[1080px] border-collapse text-left text-sm">
           <thead>
             <tr className="border-b border-[var(--ink)]">
               <th className="p-3">Time</th>
               <th className="p-3">Action</th>
               <th className="p-3">Actor</th>
               <th className="p-3">Entity</th>
+              <th className="p-3">Why</th>
               <th className="p-3">Location</th>
               <th className="p-3">Source</th>
               <th className="p-3">Request</th>
@@ -113,6 +114,7 @@ export default async function AuditPage({
                   <td className="p-3 font-semibold">{log.action}</td>
                   <td className="p-3">{actor?.display_name ?? "System"}</td>
                   <td className="p-3">{log.entity_type}</td>
+                  <td className="max-w-72 p-3 text-[var(--muted)]">{log.reason ?? "No reason was required for this action."}</td>
                   <td className="p-3">
                     {context.access.locations.find(
                       (item) => item.id === log.location_id,
@@ -125,7 +127,7 @@ export default async function AuditPage({
             })}
             {!logs?.length ? (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-[var(--muted)]">
+                <td colSpan={8} className="p-8 text-center text-[var(--muted)]">
                   No audit events match these filters.
                 </td>
               </tr>

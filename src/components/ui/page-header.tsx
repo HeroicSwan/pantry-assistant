@@ -10,8 +10,8 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <header className="grid gap-6 border-b border-[var(--ink)] pb-8 lg:grid-cols-[1fr_auto] lg:items-end">
-      <div>
+    <header className="pantry-page-header grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+      <div className="pantry-page-header-copy">
         <p className="mb-3 text-sm font-semibold text-[var(--signal)]">
           {eyebrow}
         </p>

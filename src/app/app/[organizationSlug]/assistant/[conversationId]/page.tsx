@@ -43,10 +43,13 @@ const PROPOSAL_TITLES: Record<ProposalToolName, string> = {
 
 export default async function ConversationPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ organizationSlug: string; conversationId: string }>;
+  searchParams: Promise<{ prompt?: string }>;
 }) {
   const { organizationSlug, conversationId } = await params;
+  const { prompt: suggestedPrompt } = await searchParams;
   const context = await requireOrganizationContext(organizationSlug);
   if (!can(context.effectivePermissions, "assistant.use")) notFound();
   const location = context.activeLocation;
@@ -99,11 +102,15 @@ export default async function ConversationPage({
             name="prompt"
             maxLength={1_000}
             required
+            defaultValue={suggestedPrompt ?? ""}
             hint="Do not include household details, phone numbers, secrets, or instructions copied from untrusted records."
             placeholder="Which items have a projected shortage in the next 14 days?"
           />
           <SubmitButton pendingLabel="Checking scoped records…">Ask assistant</SubmitButton>
         </ActionForm>
+        <div className="flex flex-wrap gap-2" aria-label="Suggested assistant questions">
+          {["What is at risk this week?", "What should we request from donors?", "Which items have a projected shortage in the next 14 days?", "What pickups are coming up?"].map((prompt) => <Link key={prompt} href={`/app/${organizationSlug}/assistant/${conversationId}?prompt=${encodeURIComponent(prompt)}`} className="rounded-full border border-[var(--rule)] bg-white px-3 py-2 text-sm font-semibold hover:bg-[var(--surface)]">{prompt}</Link>)}
+        </div>
       </section>
 
       <section className="grid gap-4" aria-labelledby="conversation-heading">

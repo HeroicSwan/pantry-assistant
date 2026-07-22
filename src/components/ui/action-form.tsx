@@ -22,8 +22,8 @@ export function ActionForm({
           aria-live="polite"
           className={
             state.ok
-              ? "border-l-4 border-[var(--success)] pl-3 text-sm text-[var(--success)]"
-              : "border-l-4 border-[var(--signal)] pl-3 text-sm text-[var(--signal)]"
+              ? "rounded-r-xl border-l-4 border-[var(--success)] bg-white/70 py-2 pl-3 text-sm text-[var(--success)]"
+              : "rounded-r-xl border-l-4 border-[var(--signal)] bg-white/70 py-2 pl-3 text-sm text-[var(--signal)]"
           }
         >
           {state.message}{" "}

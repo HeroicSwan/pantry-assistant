@@ -30,7 +30,7 @@ export function Field({
       <input
         id={fieldId}
         className={clsx(
-          "min-h-11 w-full border border-[var(--rule)] bg-white px-3 py-2 text-[var(--ink)] placeholder:text-[#777] focus:border-[var(--ink)]",
+          "min-h-11 w-full rounded-xl border border-[var(--rule)] bg-white px-3 py-2 text-[var(--ink)] placeholder:text-[#777] shadow-sm transition-[border-color,box-shadow] focus:border-[var(--ink)] focus:shadow-[0_0_0_4px_rgba(17,17,17,0.06)]",
           error && "border-[var(--signal)]",
           className,
         )}
@@ -77,7 +77,7 @@ export function SelectField({
       <select
         id={fieldId}
         className={clsx(
-          "min-h-11 w-full border border-[var(--rule)] bg-white px-3 py-2",
+          "min-h-11 w-full rounded-xl border border-[var(--rule)] bg-white px-3 py-2 shadow-sm transition-[border-color,box-shadow] focus:border-[var(--ink)] focus:shadow-[0_0_0_4px_rgba(17,17,17,0.06)]",
           error && "border-[var(--signal)]",
           className,
         )}
@@ -112,7 +112,7 @@ export function TextAreaField({
       <textarea
         id={fieldId}
         className={clsx(
-          "min-h-28 w-full resize-y border border-[var(--rule)] bg-white px-3 py-2",
+          "min-h-28 w-full resize-y rounded-xl border border-[var(--rule)] bg-white px-3 py-2 shadow-sm transition-[border-color,box-shadow] focus:border-[var(--ink)] focus:shadow-[0_0_0_4px_rgba(17,17,17,0.06)]",
           error && "border-[var(--signal)]",
           className,
         )}

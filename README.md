@@ -1,7 +1,7 @@
 # Pantry Assistant
 
 ![status](https://img.shields.io/badge/status-v0.1.0--rc.1-blue)
-![tests](https://img.shields.io/badge/tests-176%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-177%20passing-brightgreen)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
 ![React](https://img.shields.io/badge/React-19-149eca)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)
@@ -32,22 +32,23 @@
 
 ## What it does
 
-| Area | What you can do |
-|---|---|
-| 👤 **Accounts & teams** | Sign up, create an organization, add pantry locations, invite teammates, and assign roles (admin, manager, inventory worker, volunteer, read-only). Every action is permission-gated. |
-| 📦 **Inventory** | Item catalog with units & conversions, lot-level tracking with expiration dates, receiving from donors & purchases, adjustments, reversals/corrections, spoilage & damage, quarantine, recalls, cycle counts, reconciliation, and transfers between locations. |
-| 🏠 **Households & pickups** | Household records with privacy-tiered contact info, dietary/allergen flags, SMS-consent records, duplicate detection, package templates with household-size rules, appointments, and check-in. |
-| 🧮 **Reservations** | Reserving food for an appointment **lowers availability without touching physical stock**. Stock is only consumed when a pickup is completed. Cancellations and no-shows auto-release the hold. |
-| 📈 **Forecasting** | Deterministic, explainable demand and expiration forecasts plus donation-need suggestions — you can always see the math. |
-| 💬 **Messaging** | Consent-aware SMS workflows with templates, campaigns, and history. **Simulation mode by default** (nothing is sent); talks to Twilio only if you add credentials. |
-| 🤖 **AI assistant** | Optional, permission-scoped helper limited to a fixed set of read tools and confirmation-gated suggestions. It cannot run arbitrary queries, move stock, or send messages on its own. |
-| 📊 **Reports** | Operational summaries and CSV exports (spreadsheet-formula injection neutralized), all permission-checked and audited. |
+| Area                        | What you can do                                                                                                                                                                                                                                                                                                                     |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 👤 **Accounts & teams**     | Sign up, create an organization, add pantry locations, invite teammates, and assign roles (admin, manager, inventory worker, volunteer, read-only). Every action is permission-gated.                                                                                                                                               |
+| 📦 **Inventory**            | Item catalog with units & conversions, safe CSV catalog import from spreadsheets, printable scanner labels, lot-level tracking with expiration dates, receiving from donors & purchases, adjustments, reversals/corrections, spoilage & damage, quarantine, recalls, cycle counts, reconciliation, and transfers between locations. |
+| 🏠 **Households & pickups** | Household records with privacy-tiered contact info, dietary/allergen flags, SMS-consent records, duplicate detection, package templates with household-size rules, appointments, and check-in.                                                                                                                                      |
+| 🧮 **Reservations**         | Reserving food for an appointment **lowers availability without touching physical stock**. Stock is only consumed when a pickup is completed. Cancellations and no-shows auto-release the hold.                                                                                                                                     |
+| 📈 **Forecasting**          | Deterministic, explainable demand and expiration forecasts plus donation-need suggestions — you can always see the math.                                                                                                                                                                                                            |
+| 💬 **Messaging**            | Consent-aware SMS workflows with templates, campaigns, and history. **Simulation mode by default** (nothing is sent); talks to Twilio only if you add credentials.                                                                                                                                                                  |
+| 🤖 **AI assistant**         | Optional, permission-scoped helper limited to a fixed set of read tools and confirmation-gated suggestions. It cannot run arbitrary queries, move stock, or send messages on its own.                                                                                                                                               |
+| 📊 **Reports**              | Operational summaries and CSV exports (spreadsheet-formula injection neutralized), all permission-checked and audited.                                                                                                                                                                                                              |
+| 📚 **Guidance**             | Role-aware in-app help, printable volunteer quick-start and administrator handbook, and safe system recovery guidance.                                                                                                                                                                                                              |
 
 ## The big idea
 
 Most inventory apps store one editable "quantity on hand" number. That loses history and makes mistakes impossible to trace. Pantry Assistant does the opposite:
 
-> **Every physical change is a permanent, append-only ledger entry.** Every number you see — on hand, reserved, available, expiring — is *calculated* from that ledger. Nothing is ever silently overwritten.
+> **Every physical change is a permanent, append-only ledger entry.** Every number you see — on hand, reserved, available, expiring — is _calculated_ from that ledger. Nothing is ever silently overwritten.
 
 Physical stock, reserved stock, expected demand, and forecasts are four different things, and the app keeps them separate, auditable, and impossible to accidentally conflate.
 
@@ -55,37 +56,37 @@ Physical stock, reserved stock, expected demand, and forecasts are four differen
 
 ## Tech stack
 
-| Layer | Choice |
-|---|---|
-| Framework | Next.js 16 (App Router) + React 19 |
-| Language | TypeScript (strict mode) |
-| Styling | Tailwind CSS |
-| Database | PostgreSQL 18 (native/local — no Docker needed) |
-| Data access | Drizzle ORM + version-controlled SQL migrations, **server-only** |
-| Auth | Better Auth with database-backed sessions |
-| Testing | Vitest (unit + integration) + Playwright (end-to-end) |
-| Optional providers | Twilio-compatible SMS connectors and local Ollama assistant |
+| Layer              | Choice                                                           |
+| ------------------ | ---------------------------------------------------------------- |
+| Framework          | Next.js 16 (App Router) + React 19                               |
+| Language           | TypeScript (strict mode)                                         |
+| Styling            | Tailwind CSS                                                     |
+| Database           | PostgreSQL 18 (native/local — no Docker needed)                  |
+| Data access        | Drizzle ORM + version-controlled SQL migrations, **server-only** |
+| Auth               | Better Auth with database-backed sessions                        |
+| Testing            | Vitest (unit + integration) + Playwright (end-to-end)            |
+| Optional providers | Twilio-compatible SMS connectors and local Ollama assistant      |
 
 ---
 
 ## Security & data protection
 
-Pantry Assistant handles credentials and sensitive household information, so it's built defensively. Here is **exactly** how data is protected — and, just as importantly, what is *not* yet protected.
+Pantry Assistant handles credentials and sensitive household information, so it's built defensively. Here is **exactly** how data is protected — and, just as importantly, what is _not_ yet protected.
 
 ### How each thing is secured
 
-| What | How it's protected |
-|---|---|
-| **Passwords** | Hashed with **scrypt** (a slow, memory-hard algorithm) by Better Auth. Only the hash is stored — the original password is never saved and can't be recovered, even from a full database dump. |
-| **Login sessions** | After sign-in the browser holds only an **opaque, HTTP-only session cookie** signed with a server-only secret (`BETTER_AUTH_SECRET`, min 32 chars). The real session lives in the database and is re-validated on the server for every protected request. Sign-out and password reset revoke sessions. |
-| **Invitation links** | A random **256-bit token** goes into the invite link, but the database stores only its **SHA-256 hash**. A leaked database can't be turned back into working invites, and tokens expire (7 days). |
-| **Password reset** | Handled by Better Auth's short-lived verification tokens; reset also revokes existing sessions. |
-| **Inbound SMS webhooks** | Twilio callbacks are authenticated with an **HMAC-SHA1 signature** derived from the request and your Twilio auth token, compared in **constant time** (`timingSafeEqual`) to defeat timing attacks. Forged or tampered calls are rejected with `403`. |
-| **Scheduled-job endpoints** | Require a `CRON_SECRET` bearer token. |
-| **Secrets** (DB URL, auth secret, API keys) | Read from environment variables, **validated at startup**, and used only in server-only modules (`import "server-only"`). There are no `NEXT_PUBLIC_` secrets, the browser never receives a database connection or any key, and `.env*` files are git-ignored. |
-| **Data in transit** | Encrypted with **TLS/HTTPS** in any real deployment (local development uses `http://localhost`). |
-| **Database access** | The app connects as a **non-superuser** PostgreSQL role from trusted server code only. Organization/location isolation, immutable ledger/audit history, and negative-stock protection are enforced by database constraints and triggers — not just in application code. |
-| **Sensitive records** | Household data is split into **tiers** (basic / contact / sensitive notes). Each tier requires a specific permission checked on both the server and the database. Volunteers never receive contact tables or sensitive notes. |
+| What                                        | How it's protected                                                                                                                                                                                                                                                                                     |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Passwords**                               | Hashed with **scrypt** (a slow, memory-hard algorithm) by Better Auth. Only the hash is stored — the original password is never saved and can't be recovered, even from a full database dump.                                                                                                          |
+| **Login sessions**                          | After sign-in the browser holds only an **opaque, HTTP-only session cookie** signed with a server-only secret (`BETTER_AUTH_SECRET`, min 32 chars). The real session lives in the database and is re-validated on the server for every protected request. Sign-out and password reset revoke sessions. |
+| **Invitation links**                        | A random **256-bit token** goes into the invite link, but the database stores only its **SHA-256 hash**. A leaked database can't be turned back into working invites, and tokens expire (7 days).                                                                                                      |
+| **Password reset**                          | Handled by Better Auth's short-lived verification tokens; reset also revokes existing sessions.                                                                                                                                                                                                        |
+| **Inbound SMS webhooks**                    | Twilio callbacks are authenticated with an **HMAC-SHA1 signature** derived from the request and your Twilio auth token, compared in **constant time** (`timingSafeEqual`) to defeat timing attacks. Forged or tampered calls are rejected with `403`.                                                  |
+| **Scheduled-job endpoints**                 | Require a `CRON_SECRET` bearer token.                                                                                                                                                                                                                                                                  |
+| **Secrets** (DB URL, auth secret, API keys) | Read from environment variables, **validated at startup**, and used only in server-only modules (`import "server-only"`). There are no `NEXT_PUBLIC_` secrets, the browser never receives a database connection or any key, and `.env*` files are git-ignored.                                         |
+| **Data in transit**                         | Encrypted with **TLS/HTTPS** in any real deployment (local development uses `http://localhost`).                                                                                                                                                                                                       |
+| **Database access**                         | The app connects as a **non-superuser** PostgreSQL role from trusted server code only. Organization/location isolation, immutable ledger/audit history, and negative-stock protection are enforced by database constraints and triggers — not just in application code.                                |
+| **Sensitive records**                       | Household data is split into **tiers** (basic / contact / sensitive notes). Each tier requires a specific permission checked on both the server and the database. Volunteers never receive contact tables or sensitive notes.                                                                          |
 
 ### What is and isn't encrypted (honest summary)
 
@@ -93,7 +94,7 @@ Pantry Assistant handles credentials and sensitive household information, so it'
 - ✅ **Invitation tokens** are one-way hashed (SHA-256) before storage.
 - ✅ **Session cookies** are signed with a server secret; **webhooks** are HMAC-verified.
 - ✅ **Traffic** is encrypted via TLS in deployment.
-- ⚠️ **Individual database fields are *not* application-level encrypted.** Columns like phone numbers and sensitive household notes are stored as plaintext in PostgreSQL, protected by permission-based access control and whatever encryption-at-rest the database host provides — **not** by per-field encryption in the app.
+- ⚠️ **Individual database fields are _not_ application-level encrypted.** Columns like phone numbers and sensitive household notes are stored as plaintext in PostgreSQL, protected by permission-based access control and whatever encryption-at-rest the database host provides — **not** by per-field encryption in the app.
 
 > **Planned:** column-level encryption for the most sensitive fields (e.g., sensitive notes) is noted as future work. Until then, treat this as a demo and keep real personal data out of it.
 
@@ -151,13 +152,13 @@ pnpm dev          # start the app on http://localhost:3000
 
 The seed builds a fictional organization — **Harbor Community Food Pantry** — with one account per role. Sign in with any email below using the `SEED_USER_PASSWORD` you chose:
 
-| Email | Role |
-|---|---|
-| `admin@harbor-pantry.example.test` | Administrator (full access) |
-| `manager@harbor-pantry.example.test` | Pantry manager |
-| `worker@harbor-pantry.example.test` | Inventory worker |
-| `volunteer@harbor-pantry.example.test` | Volunteer (limited) |
-| `viewer@harbor-pantry.example.test` | Read-only |
+| Email                                  | Role                        |
+| -------------------------------------- | --------------------------- |
+| `admin@harbor-pantry.example.test`     | Administrator (full access) |
+| `manager@harbor-pantry.example.test`   | Pantry manager              |
+| `worker@harbor-pantry.example.test`    | Inventory worker            |
+| `volunteer@harbor-pantry.example.test` | Volunteer (limited)         |
+| `viewer@harbor-pantry.example.test`    | Read-only                   |
 
 Also included: `suspended@harbor-pantry.example.test` (shows the blocked-access state) and `admin@other-pantry.example.test` (a separate organization, to demonstrate that data never crosses organizations). All demo emails use the reserved `example.test` domain and fictional phone numbers — **no real people or messages are involved.**
 
@@ -176,14 +177,14 @@ pnpm db:seed      # development-only fictional data; never use for production
 
 ## Tests
 
-**176 automated tests, all passing** on the current build:
+**177 automated tests, all passing** on the current build:
 
-| Suite | Tests | Covers | Command |
-|---|---:|---|---|
-| Unit | **98** | Ledger math, FEFO allocation, unit conversion, permission & state-machine rules, forecasting, error mapping, AI assistant policy/provider, env-schema validation, SMS providers | `pnpm test` |
-| Database + integration | **48** | Org/location isolation, immutable ledger, negative-stock protection, reservations, pickup fulfillment, concurrency, AI assistant proposal lifecycle & permission scoping | `pnpm test:db` |
-| End-to-end | **30** | Full browser flows (desktop + mobile) — sign-in, role limits, inventory, pickups, reports, accessibility | `pnpm test:e2e` |
-| **Total** | **176** | | |
+| Suite                  |   Tests | Covers                                                                                                                                                                          | Command         |
+| ---------------------- | ------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| Unit                   |  **98** | Ledger math, FEFO allocation, unit conversion, permission & state-machine rules, forecasting, error mapping, AI assistant policy/provider, env-schema validation, SMS providers | `pnpm test`     |
+| Database + integration |  **49** | Org/location isolation, immutable ledger, negative-stock protection, reservations, pickup fulfillment, concurrency, AI assistant proposal lifecycle & permission scoping        | `pnpm test:db`  |
+| End-to-end             |  **30** | Full browser flows (desktop + mobile) — sign-in, role limits, inventory, pickups, reports, accessibility                                                                        | `pnpm test:e2e` |
+| **Total**              | **177** |                                                                                                                                                                                 |                 |
 
 `test:db` and `test:e2e` reset, migrate, and seed the isolated `food_pantry_test` database — they never touch your development data. `pnpm typecheck`, `pnpm lint`, and `pnpm build` also pass.
 
@@ -194,7 +195,7 @@ pnpm db:seed      # development-only fictional data; never use for production
 The app is fully usable with all of these turned off.
 
 - **SMS providers** — leave credentials blank and use `Disabled` or `Simulation` mode for local use. Each pantry location can select Twilio, Vonage, Plivo, Telnyx, Sinch, Infobip, Bandwidth, Bird, Amazon SNS, or Azure Communication Services from Messaging settings. Live delivery requires that provider's server-only credentials and sender configuration; every message is re-checked against consent history first.
-- **AI assistant (local Ollama)** — set `ASSISTANT_PROVIDER=ollama` and point it at a locally hosted [Ollama](https://ollama.com) server (default `qwen2.5:7b`); no data ever leaves the machine, and no external AI provider is involved. Defaults to a keyword-based router with no model at all. Either way, it can only use fixed read tools and can only *propose* actions an authorized user must confirm.
+- **AI assistant (local Ollama)** — set `ASSISTANT_PROVIDER=ollama` and point it at a locally hosted [Ollama](https://ollama.com) server (default `qwen2.5:7b`); no data ever leaves the machine, and no external AI provider is involved. Defaults to a keyword-based router with no model at all. Either way, it can only use fixed read tools and can only _propose_ actions an authorized user must confirm.
 - **Scheduled jobs** — forecast and messaging workers can run on a schedule; the job routes require a `CRON_SECRET`.
 - **Advanced capabilities** — opt-in seasonal/causal forecasting, autonomous operations, PostgreSQL-backed job queues, custom report layouts, server-generated PDFs, scoped attachments, eligibility records, country compliance profiles, and controlled autonomous AI writes are documented in [`docs/28-advanced-capabilities.md`](docs/28-advanced-capabilities.md).
 

@@ -3,6 +3,10 @@ param(
   [int]$Port = 3000,
   [switch]$SeedDemoData,
   [switch]$DisableLanAccess,
+  [switch]$EnableLanTls,
+  [string]$LanHostname = [System.Net.Dns]::GetHostName(),
+  [switch]$BootstrapPrerequisites,
+  [securestring]$PostgresAdminPassword,
   [ValidateSet("disabled", "ollama")]
   [string]$AssistantProvider = ""
 )
@@ -27,21 +31,64 @@ function Get-EnvValue([string]$Path, [string]$Name) {
   if (-not $line) { return $null }
   return $line.Substring($Name.Length + 1).Trim('"')
 }
+function Install-WindowsPackage([string]$Id, [string]$Name) {
+  $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
+  if (-not $winget) { throw "$Name is missing and WinGet is unavailable. Install it through your approved Windows software channel, then run setup again." }
+  Write-Step "Installing $Name through WinGet"
+  & $winget.Source install --exact --id $Id --accept-package-agreements --accept-source-agreements
+  if ($LASTEXITCODE -ne 0) { throw "WinGet could not install $Name. Complete the official installer if it opened, then run setup again." }
+}
+function Resolve-Caddy {
+  $command = Get-Command caddy.exe -ErrorAction SilentlyContinue
+  if ($command) { return $command.Source }
+  $candidate = "C:\Program Files\Caddy\caddy.exe"
+  if (Test-Path -LiteralPath $candidate) { return $candidate }
+  return $null
+}
 
 if (-not (Test-Path -LiteralPath (Join-Path $ProjectRoot "package.json"))) { throw "Run this script from the Pantry Assistant application folder." }
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { throw "Run Pantry Assistant setup from an elevated PowerShell window so it can create the LAN firewall rule and scheduled task." }
+if ($DisableLanAccess -and $EnableLanTls) { throw "Choose either local-only mode or secure LAN access, not both." }
+if ($EnableLanTls -and $LanHostname -notmatch '^[a-zA-Z0-9][a-zA-Z0-9.-]{0,251}[a-zA-Z0-9]$') { throw "LanHostname must be a valid DNS name." }
 
 Write-Step "Checking Node.js and pnpm"
-if (-not (Get-Command node.exe -ErrorAction SilentlyContinue)) { throw "Node.js 20 or newer is required. Install the current Node.js LTS release, then run setup again." }
-$nodeMajor = [int]((node --version).TrimStart('v').Split('.')[0])
+if (-not (Get-Command node.exe -ErrorAction SilentlyContinue) -and $BootstrapPrerequisites) {
+  Install-WindowsPackage "OpenJS.NodeJS.LTS" "Node.js LTS"
+  $nodeDirectory = "C:\Program Files\nodejs"
+  if (Test-Path -LiteralPath $nodeDirectory) { $env:Path = "$nodeDirectory;$env:Path" }
+}
+$nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
+if (-not $nodeCommand) { throw "Node.js 20 or newer is required. Run setup with -BootstrapPrerequisites to install it through WinGet, then rerun setup if Windows has not refreshed command paths yet." }
+$nodeMajor = [int]((& $nodeCommand.Source --version).TrimStart('v').Split('.')[0])
 if ($nodeMajor -lt 20) { throw "Node.js 20 or newer is required; found $nodeMajor." }
 $pnpmCommand = Get-Command pnpm.cmd -ErrorAction SilentlyContinue
-if (-not $pnpmCommand) { throw "pnpm is required. Install pnpm, then run setup again." }
+if (-not $pnpmCommand -and $BootstrapPrerequisites) {
+  $corepackCommand = Get-Command corepack.exe -ErrorAction SilentlyContinue
+  if (-not $corepackCommand) { throw "Corepack was not found with Node.js. Install pnpm through your approved Windows software channel, then run setup again." }
+  & $corepackCommand.Source enable
+  if ($LASTEXITCODE -ne 0) { throw "Corepack could not enable pnpm. Install pnpm through your approved Windows software channel, then run setup again." }
+  $pnpmCommand = Get-Command pnpm.cmd -ErrorAction SilentlyContinue
+}
+if (-not $pnpmCommand) { throw "pnpm is required. Run setup with -BootstrapPrerequisites or install pnpm, then run setup again." }
+
+$caddy = $null
+if ($EnableLanTls) {
+  $caddy = Resolve-Caddy
+  if (-not $caddy -and $BootstrapPrerequisites) {
+    Install-WindowsPackage "CaddyServer.Caddy" "Caddy HTTPS proxy"
+    $caddy = Resolve-Caddy
+  }
+  if (-not $caddy) { throw "Secure LAN access requires Caddy. Run setup with -BootstrapPrerequisites or install CaddyServer.Caddy through your approved Windows software channel." }
+}
 
 Write-Step "Checking native PostgreSQL"
 $postgresService = Get-Service -Name "postgresql-x64-18" -ErrorAction SilentlyContinue
-if (-not $postgresService) { throw "Native PostgreSQL 18 was not found. Install PostgreSQL 18 as a Windows service, then run setup again." }
+if (-not $postgresService -and $BootstrapPrerequisites) {
+  Install-WindowsPackage "PostgreSQL.PostgreSQL.18" "PostgreSQL 18"
+  $postgresService = Get-Service -Name "postgresql-x64-18" -ErrorAction SilentlyContinue
+}
+if (-not $postgresService) { throw "Native PostgreSQL 18 was not found. Run setup with -BootstrapPrerequisites to launch the official installer, set its administrator password, then run setup again." }
 if ($postgresService.Status -ne "Running") { Start-Service -Name $postgresService.Name }
 $psql = "C:\Program Files\PostgreSQL\18\bin\psql.exe"
 $createdb = "C:\Program Files\PostgreSQL\18\bin\createdb.exe"
@@ -50,7 +97,10 @@ if (-not (Test-Path -LiteralPath $psql) -or -not (Test-Path -LiteralPath $create
 $envPath = Join-Path $ProjectRoot ".env.local"
 $existingAppPassword = Get-EnvValue $envPath "PANTRY_APP_PASSWORD"
 $existingDatabaseUrl = Get-EnvValue $envPath "DATABASE_URL"
-$adminPassword = Get-PlainSecret "Enter the PostgreSQL postgres administrator password (used only during setup)"
+$adminPassword = if ($PostgresAdminPassword) {
+  $credential = [System.Management.Automation.PSCredential]::new("local", $PostgresAdminPassword)
+  $credential.GetNetworkCredential().Password
+} else { Get-PlainSecret "Enter the PostgreSQL postgres administrator password (used only during setup)" }
 $appPassword = $existingAppPassword
 if (-not $appPassword -and $existingDatabaseUrl) {
   $existingUri = [Uri]$existingDatabaseUrl
@@ -64,14 +114,13 @@ if (-not $seedPassword) { $seedPassword = New-Secret }
 $assistantProvider = Get-EnvValue $envPath "ASSISTANT_PROVIDER"
 if ($assistantProvider -notin @("disabled", "ollama")) { $assistantProvider = "ollama" }
 if ($AssistantProvider) { $assistantProvider = $AssistantProvider }
-$optionalEnvNames = @("TWILIO_ACCOUNT_SID","TWILIO_AUTH_TOKEN","TWILIO_MESSAGING_SERVICE_SID","TWILIO_PHONE_NUMBER","TWILIO_WEBHOOK_BASE_URL","VONAGE_API_KEY","VONAGE_API_SECRET","PLIVO_AUTH_ID","PLIVO_AUTH_TOKEN","TELNYX_API_KEY","TELNYX_MESSAGING_PROFILE_ID","SINCH_SERVICE_PLAN_ID","SINCH_API_TOKEN","INFOBIP_BASE_URL","INFOBIP_API_KEY","BANDWIDTH_API_TOKEN","BANDWIDTH_API_SECRET","BANDWIDTH_APPLICATION_ID","BIRD_ACCESS_KEY","BIRD_WORKSPACE_ID","BIRD_CHANNEL_ID","AWS_REGION","AWS_ACCESS_KEY_ID","AWS_SECRET_ACCESS_KEY","AWS_SNS_SENDER_ID","AZURE_COMMUNICATION_CONNECTION_STRING","SMS_WEBHOOK_SECRET","SMTP_HOST","SMTP_PORT","SMTP_USER","SMTP_PASSWORD","SMTP_FROM","SMTP_SECURE")
+$optionalEnvNames = @("TWILIO_ACCOUNT_SID","TWILIO_AUTH_TOKEN","TWILIO_MESSAGING_SERVICE_SID","TWILIO_PHONE_NUMBER","TWILIO_WEBHOOK_BASE_URL","VONAGE_API_KEY","VONAGE_API_SECRET","PLIVO_AUTH_ID","PLIVO_AUTH_TOKEN","TELNYX_API_KEY","TELNYX_MESSAGING_PROFILE_ID","SINCH_SERVICE_PLAN_ID","SINCH_API_TOKEN","INFOBIP_BASE_URL","INFOBIP_API_KEY","BANDWIDTH_API_TOKEN","BANDWIDTH_API_SECRET","BANDWIDTH_APPLICATION_ID","BIRD_ACCESS_KEY","BIRD_WORKSPACE_ID","BIRD_CHANNEL_ID","AWS_REGION","AWS_ACCESS_KEY_ID","AWS_SECRET_ACCESS_KEY","AWS_SNS_SENDER_ID","AZURE_COMMUNICATION_CONNECTION_STRING","SMS_WEBHOOK_SECRET_VONAGE","SMS_WEBHOOK_SECRET_PLIVO","SMS_WEBHOOK_SECRET_TELNYX","SMS_WEBHOOK_SECRET_SINCH","SMS_WEBHOOK_SECRET_INFOBIP","SMS_WEBHOOK_SECRET_BANDWIDTH","SMS_WEBHOOK_SECRET_BIRD","SMS_WEBHOOK_SECRET_AWS_SNS","SMS_WEBHOOK_SECRET_AZURE_COMMUNICATION_SERVICES","SMTP_HOST","SMTP_PORT","SMTP_USER","SMTP_PASSWORD","SMTP_FROM","SMTP_SECURE")
 $optionalEnv = @{}
 foreach ($name in $optionalEnvNames) { $optionalEnv[$name] = Get-EnvValue $envPath $name }
 $encodedPassword = [Uri]::EscapeDataString($appPassword)
 $databaseUrl = if ($existingDatabaseUrl) { $existingDatabaseUrl } else { "postgresql://pantry_app:$encodedPassword@127.0.0.1:5432/food_pantry_dev" }
 $testDatabaseUrl = "postgresql://pantry_app:$encodedPassword@127.0.0.1:5432/food_pantry_test"
-$hostName = [System.Net.Dns]::GetHostName()
-$appUrl = if ($DisableLanAccess) { "http://localhost:$Port" } else { "http://$hostName`:$Port" }
+$appUrl = if ($EnableLanTls) { "https://$LanHostname" } else { "http://localhost:$Port" }
 $webhookBase = $optionalEnv.TWILIO_WEBHOOK_BASE_URL
 if (-not $webhookBase) { $webhookBase = $appUrl }
 
@@ -125,7 +174,15 @@ try {
   "AWS_SECRET_ACCESS_KEY=$($optionalEnv.AWS_SECRET_ACCESS_KEY)",
   "AWS_SNS_SENDER_ID=$($optionalEnv.AWS_SNS_SENDER_ID)",
   "AZURE_COMMUNICATION_CONNECTION_STRING=$($optionalEnv.AZURE_COMMUNICATION_CONNECTION_STRING)",
-  "SMS_WEBHOOK_SECRET=$($optionalEnv.SMS_WEBHOOK_SECRET)",
+  "SMS_WEBHOOK_SECRET_VONAGE=$($optionalEnv.SMS_WEBHOOK_SECRET_VONAGE)",
+  "SMS_WEBHOOK_SECRET_PLIVO=$($optionalEnv.SMS_WEBHOOK_SECRET_PLIVO)",
+  "SMS_WEBHOOK_SECRET_TELNYX=$($optionalEnv.SMS_WEBHOOK_SECRET_TELNYX)",
+  "SMS_WEBHOOK_SECRET_SINCH=$($optionalEnv.SMS_WEBHOOK_SECRET_SINCH)",
+  "SMS_WEBHOOK_SECRET_INFOBIP=$($optionalEnv.SMS_WEBHOOK_SECRET_INFOBIP)",
+  "SMS_WEBHOOK_SECRET_BANDWIDTH=$($optionalEnv.SMS_WEBHOOK_SECRET_BANDWIDTH)",
+  "SMS_WEBHOOK_SECRET_BIRD=$($optionalEnv.SMS_WEBHOOK_SECRET_BIRD)",
+  "SMS_WEBHOOK_SECRET_AWS_SNS=$($optionalEnv.SMS_WEBHOOK_SECRET_AWS_SNS)",
+  "SMS_WEBHOOK_SECRET_AZURE_COMMUNICATION_SERVICES=$($optionalEnv.SMS_WEBHOOK_SECRET_AZURE_COMMUNICATION_SERVICES)",
   "SMTP_HOST=$($optionalEnv.SMTP_HOST)",
   "SMTP_PORT=$($optionalEnv.SMTP_PORT)",
   "SMTP_USER=$($optionalEnv.SMTP_USER)",
@@ -154,13 +211,34 @@ $taskTrigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 $taskSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 Register-ScheduledTask -TaskName $taskName -Action $taskAction -Trigger $taskTrigger -Settings $taskSettings -Description "Starts the Pantry Assistant self-hosted application." -Force | Out-Null
 
-if (-not $DisableLanAccess) {
-  $ruleName = "Pantry Assistant TCP $Port"
+if ($EnableLanTls) {
+  $caddyDirectory = Join-Path $ProjectRoot "data\caddy"
+  $caddyConfig = Join-Path $caddyDirectory "Caddyfile"
+  New-Item -ItemType Directory -Force -Path $caddyDirectory | Out-Null
+  @"
+$LanHostname {
+  tls internal
+  reverse_proxy 127.0.0.1:$Port
+}
+"@ | Set-Content -LiteralPath $caddyConfig -Encoding utf8
+  $caddyTaskAction = New-ScheduledTaskAction -Execute $caddy -Argument "run --config `"$caddyConfig`" --adapter caddyfile"
+  Register-ScheduledTask -TaskName "PantryAssistantTls" -Action $caddyTaskAction -Trigger $taskTrigger -Settings $taskSettings -Description "Provides Pantry Assistant HTTPS for the private network." -Force | Out-Null
+}
+
+$backupTaskName = "PantryAssistantBackup"
+$backupScript = Join-Path $ProjectRoot "scripts\backup-self-hosted.ps1"
+$backupAction = New-ScheduledTaskAction -Execute $powershell -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$backupScript`""
+$backupTrigger = New-ScheduledTaskTrigger -Daily -At 2:00AM
+$backupSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+Register-ScheduledTask -TaskName $backupTaskName -Action $backupAction -Trigger $backupTrigger -Settings $backupSettings -Description "Creates an encrypted Pantry Assistant PostgreSQL backup each day." -Force | Out-Null
+
+if ($EnableLanTls) {
+  $ruleName = "Pantry Assistant HTTPS"
   if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)) {
-    New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort $Port -Profile Private | Out-Null
+    New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 443 -Profile Private | Out-Null
   }
 }
 
-Write-Step "Setup complete. Pantry Assistant will start automatically at sign-in."
+Write-Step "Setup complete. Pantry Assistant will start automatically at sign-in and create an encrypted local backup daily."
 Write-Output "Local URL: http://localhost:$Port"
-if (-not $DisableLanAccess) { Write-Output "LAN URL: $appUrl" }
+if ($EnableLanTls) { Write-Output "Secure LAN URL: $appUrl"; Write-Output "Trust Caddy's local CA certificate on each approved LAN device before using the secure LAN URL." }
