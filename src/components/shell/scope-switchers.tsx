@@ -25,7 +25,7 @@ export function ScopeSwitchers({
     <div className="grid gap-3">
       <form
         action={switchOrganizationAction}
-        className="grid grid-cols-[1fr_auto] border border-[var(--rule)] bg-white"
+        className="grid grid-cols-[1fr_auto] overflow-hidden rounded-xl border border-[var(--rule)] bg-white shadow-sm"
       >
         <label className="sr-only" htmlFor="organization-switcher">
           Organization
@@ -43,7 +43,7 @@ export function ScopeSwitchers({
           ))}
         </select>
         <button
-          className="border-l border-[var(--rule)] px-3 text-sm font-semibold"
+          className="border-l border-[var(--rule)] px-3 text-sm font-semibold transition-colors hover:bg-[var(--surface)]"
           type="submit"
         >
           Switch
@@ -51,7 +51,7 @@ export function ScopeSwitchers({
       </form>
       <form
         action={locationAction}
-        className="grid grid-cols-[1fr_auto] border border-[var(--rule)] bg-white"
+        className="grid grid-cols-[1fr_auto] overflow-hidden rounded-xl border border-[var(--rule)] bg-white shadow-sm"
       >
         <label className="sr-only" htmlFor="location-switcher">
           Location
@@ -70,7 +70,7 @@ export function ScopeSwitchers({
         </select>
         <input type="hidden" name="returnTo" value={pathname} />
         <button
-          className="border-l border-[var(--rule)] px-3 text-sm font-semibold"
+          className="border-l border-[var(--rule)] px-3 text-sm font-semibold transition-colors hover:bg-[var(--surface)]"
           type="submit"
         >
           Apply

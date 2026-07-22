@@ -20,4 +20,6 @@ $path = Join-Path $OutputDirectory ("pantry-assistant-{0}.dump" -f (Get-Date -Fo
 $env:PGPASSWORD = $password
 try { & $pgDump --format=custom --file=$path --host=$hostName --port=$portNumber --username=$user --dbname=food_pantry_dev --no-owner --no-acl } finally { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
 if ($LASTEXITCODE -ne 0) { throw "Database backup failed." }
-Write-Output "Backup created: $path"
+& cipher.exe /e /a $path | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Database backup was created but Windows EFS encryption could not be applied." }
+Write-Output "Encrypted backup created: $path"

@@ -23,7 +23,7 @@ The application can bind to the LAN with `pnpm start:lan`, but HTTPS requires a 
 
 ## Release gates still requiring deployment access
 
-1. Install the package on a clean Windows PC and run the packaged browser E2E suite.
+1. Install the package on a clean Windows PC and run the packaged browser E2E suite. The repository E2E suite now uses its own port (3101) and never reuses a process on port 3000.
 2. Install and trust the LAN certificate/reverse proxy.
 3. Configure and test the foodbank SMTP provider.
 4. Optionally configure one SMS provider and send a consented test message.

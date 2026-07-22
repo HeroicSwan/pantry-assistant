@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/lib/action-result";
 import { requireUser } from "@/lib/auth/access";
+import { db } from "@/lib/database/client";
+import { hasLocationPermission } from "@/lib/database/authorization";
 import { logServerError, mapProviderError } from "@/lib/errors";
 import { campaignSchema, individualMessageSchema, messageTemplateSchema, messagingSettingsSchema } from "@/domains/messaging/schemas";
-import { archiveMessageTemplate, createMessageCampaign, createMessageTemplate, markInboundHandled, retryFailedMessage, saveMessagingSettings, sendIndividualMessage, sendMessageCampaign, transitionMessageCampaign, updateMessageTemplate } from "@/domains/messaging/service";
+import { archiveMessageTemplate, createMessageCampaign, createMessageTemplate, markInboundHandled, retryFailedMessage, saveMessagingSettings, scheduleAppointmentReminders, sendIndividualMessage, sendMessageCampaign, transitionMessageCampaign, updateMessageTemplate } from "@/domains/messaging/service";
 
 function failure(scope: string, requestId: string, error: unknown): ActionResult {
   const provider = error instanceof Error ? { message: error.message, code: (error as { code?: string }).code } : {};
@@ -102,4 +104,20 @@ export async function saveMessagingSettingsAction(organizationId: string, organi
   if (!parsed.success) return { ok: false, code: "VALIDATION_ERROR", message: "Review the messaging settings.", requestId };
   try { await saveMessagingSettings(actor.id, organizationId, locationId, parsed.data, requestId); revalidatePath(`/app/${organizationSlug}/messages/settings`); return success("Messaging settings saved.", requestId); }
   catch (error) { return failure("message.settings.save", requestId, error); }
+}
+
+export async function queueDueAppointmentRemindersAction(organizationId: string, organizationSlug: string, locationId: string, _state: ActionResult): Promise<ActionResult> {
+  void _state;
+  const requestId = crypto.randomUUID();
+  const actor = await requireUser();
+  try {
+    if (!await hasLocationPermission(db, actor.id, locationId, "message.schedule")) {
+      return { ok: false, code: "FORBIDDEN", message: "You do not have permission to schedule reminders for this location.", requestId };
+    }
+    const queued = await scheduleAppointmentReminders(organizationId, locationId);
+    revalidatePath(`/app/${organizationSlug}/dashboard`);
+    revalidatePath(`/app/${organizationSlug}/messages`);
+    revalidatePath(`/app/${organizationSlug}/messages/history`);
+    return success(queued.created > 0 ? `${queued.created} due appointment reminder${queued.created === 1 ? "" : "s"} queued for the configured provider.` : "No due appointment reminders were eligible to queue.", requestId);
+  } catch (error) { return failure("message.reminders.queue", requestId, error); }
 }

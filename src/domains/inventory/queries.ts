@@ -20,7 +20,14 @@ export type ItemBalanceRow = {
   lot_count: string;
 };
 
-export async function listItemsWithBalances(organizationId: string, pantryLocationId: string) {
+export async function listItemsWithBalances(
+  organizationId: string,
+  pantryLocationId: string,
+  filters: { query?: string; stock?: "all" | "available" | "needs_review" } = {},
+) {
+  const query = filters.query?.trim() ?? "";
+  const pattern = `%${query}%`;
+  const stock = filters.stock ?? "all";
   const result = await db.execute<ItemBalanceRow>(sql`
     select
       i.id, i.name, i.sku, i.status,
@@ -45,6 +52,9 @@ export async function listItemsWithBalances(organizationId: string, pantryLocati
       group by inventory_item_id
     ) l on l.inventory_item_id = i.id
     where i.organization_id = ${organizationId}
+      and (${query} = '' or i.name ilike ${pattern} or coalesce(i.sku, '') ilike ${pattern})
+      and (${stock} <> 'available' or coalesce(b.available_quantity, 0) > 0)
+      and (${stock} <> 'needs_review' or coalesce(b.expired_quantity, 0) > 0 or coalesce(b.quarantined_quantity, 0) > 0 or coalesce(b.recalled_quantity, 0) > 0)
     order by i.status asc, lower(i.name) asc
   `);
   return result.rows;

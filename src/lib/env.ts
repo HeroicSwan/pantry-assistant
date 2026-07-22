@@ -1,7 +1,13 @@
 import { z } from "zod";
 
-const optionalUrl = z.preprocess((value) => value === "" ? undefined : value, z.string().url().optional());
-const optionalSecret = z.preprocess((value) => value === "" ? undefined : value, z.string().min(32).optional());
+const optionalUrl = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.string().url().optional(),
+);
+const optionalSecret = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.string().min(32).optional(),
+);
 
 const serverEnvironmentSchema = z.object({
   DATABASE_URL: z.string().url().startsWith("postgresql://"),
@@ -34,12 +40,32 @@ const serverEnvironmentSchema = z.object({
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
   AWS_SNS_SENDER_ID: z.string().optional(),
   AZURE_COMMUNICATION_CONNECTION_STRING: z.string().optional(),
-  SMS_WEBHOOK_SECRET: optionalSecret,
-  SMTP_HOST: z.preprocess((value) => value === "" ? undefined : value, z.string().optional()),
+  SMS_WEBHOOK_SECRET_VONAGE: optionalSecret,
+  SMS_WEBHOOK_SECRET_PLIVO: optionalSecret,
+  SMS_WEBHOOK_SECRET_TELNYX: optionalSecret,
+  SMS_WEBHOOK_SECRET_SINCH: optionalSecret,
+  SMS_WEBHOOK_SECRET_INFOBIP: optionalSecret,
+  SMS_WEBHOOK_SECRET_BANDWIDTH: optionalSecret,
+  SMS_WEBHOOK_SECRET_BIRD: optionalSecret,
+  SMS_WEBHOOK_SECRET_AWS_SNS: optionalSecret,
+  SMS_WEBHOOK_SECRET_AZURE_COMMUNICATION_SERVICES: optionalSecret,
+  SMTP_HOST: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().optional(),
+  ),
   SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
-  SMTP_USER: z.preprocess((value) => value === "" ? undefined : value, z.string().optional()),
-  SMTP_PASSWORD: z.preprocess((value) => value === "" ? undefined : value, z.string().optional()),
-  SMTP_FROM: z.preprocess((value) => value === "" ? undefined : value, z.string().email().optional()),
+  SMTP_USER: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().optional(),
+  ),
+  SMTP_PASSWORD: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().optional(),
+  ),
+  SMTP_FROM: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().email().optional(),
+  ),
   SMTP_SECURE: z.coerce.boolean().default(false),
   CRON_SECRET: optionalSecret,
   // Ollama runs entirely against a locally hosted server. The deterministic implementation remains
@@ -47,8 +73,18 @@ const serverEnvironmentSchema = z.object({
   ASSISTANT_PROVIDER: z.enum(["disabled", "ollama"]).default("ollama"),
   OLLAMA_ASSISTANT_BASE_URL: z.string().url().default("http://127.0.0.1:11434"),
   OLLAMA_ASSISTANT_MODEL: z.string().default("qwen2.5:7b"),
-  OLLAMA_ASSISTANT_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
-  AI_CONVERSATION_RETENTION_DAYS: z.coerce.number().int().min(7).max(3650).default(90),
+  OLLAMA_ASSISTANT_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(1000)
+    .max(120000)
+    .default(30000),
+  AI_CONVERSATION_RETENTION_DAYS: z.coerce
+    .number()
+    .int()
+    .min(7)
+    .max(3650)
+    .default(90),
   ASSISTANT_AUTONOMOUS_WRITES_ENABLED: z.coerce.boolean().default(false),
 });
 
@@ -88,8 +124,18 @@ export function getServerEnvironment() {
     AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
     AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
     AWS_SNS_SENDER_ID: process.env.AWS_SNS_SENDER_ID,
-    AZURE_COMMUNICATION_CONNECTION_STRING: process.env.AZURE_COMMUNICATION_CONNECTION_STRING,
-    SMS_WEBHOOK_SECRET: process.env.SMS_WEBHOOK_SECRET,
+    AZURE_COMMUNICATION_CONNECTION_STRING:
+      process.env.AZURE_COMMUNICATION_CONNECTION_STRING,
+    SMS_WEBHOOK_SECRET_VONAGE: process.env.SMS_WEBHOOK_SECRET_VONAGE,
+    SMS_WEBHOOK_SECRET_PLIVO: process.env.SMS_WEBHOOK_SECRET_PLIVO,
+    SMS_WEBHOOK_SECRET_TELNYX: process.env.SMS_WEBHOOK_SECRET_TELNYX,
+    SMS_WEBHOOK_SECRET_SINCH: process.env.SMS_WEBHOOK_SECRET_SINCH,
+    SMS_WEBHOOK_SECRET_INFOBIP: process.env.SMS_WEBHOOK_SECRET_INFOBIP,
+    SMS_WEBHOOK_SECRET_BANDWIDTH: process.env.SMS_WEBHOOK_SECRET_BANDWIDTH,
+    SMS_WEBHOOK_SECRET_BIRD: process.env.SMS_WEBHOOK_SECRET_BIRD,
+    SMS_WEBHOOK_SECRET_AWS_SNS: process.env.SMS_WEBHOOK_SECRET_AWS_SNS,
+    SMS_WEBHOOK_SECRET_AZURE_COMMUNICATION_SERVICES:
+      process.env.SMS_WEBHOOK_SECRET_AZURE_COMMUNICATION_SERVICES,
     SMTP_HOST: process.env.SMTP_HOST,
     SMTP_PORT: process.env.SMTP_PORT,
     SMTP_USER: process.env.SMTP_USER,
@@ -102,7 +148,8 @@ export function getServerEnvironment() {
     OLLAMA_ASSISTANT_MODEL: process.env.OLLAMA_ASSISTANT_MODEL,
     OLLAMA_ASSISTANT_TIMEOUT_MS: process.env.OLLAMA_ASSISTANT_TIMEOUT_MS,
     AI_CONVERSATION_RETENTION_DAYS: process.env.AI_CONVERSATION_RETENTION_DAYS,
-    ASSISTANT_AUTONOMOUS_WRITES_ENABLED: process.env.ASSISTANT_AUTONOMOUS_WRITES_ENABLED,
+    ASSISTANT_AUTONOMOUS_WRITES_ENABLED:
+      process.env.ASSISTANT_AUTONOMOUS_WRITES_ENABLED,
   });
 }
 

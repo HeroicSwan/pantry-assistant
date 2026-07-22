@@ -10,6 +10,8 @@ Vitest unit tests cover schemas, slug handling, active-scope selection, effectiv
 
 Playwright runs against a production Next.js server whose `DATABASE_URL` is overridden with `TEST_DATABASE_URL`. Its script resets, migrates, and seeds the test database first. Desktop and mobile projects exercise administrator pages and writes, invitation preparation, manager and volunteer denials, read-only controls, suspended access, cross-organization guessing, sign-up, and atomic onboarding.
 
+`pnpm test:performance` is a guarded native-PostgreSQL performance smoke test. It runs only with `NODE_ENV=test` against a distinct local `*_test` database, inserts 2,500 temporary catalog items, measures the organization/location-scoped inventory-list query, asserts the configured local threshold, and deletes its generated rows in `finally`. It never resets or writes to `food_pantry_dev`.
+
 ```powershell
 pnpm test
 pnpm test:integration

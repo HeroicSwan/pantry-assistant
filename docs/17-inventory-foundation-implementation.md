@@ -7,6 +7,7 @@ Prompt 3 introduced the inventory catalog and immutable stock foundation without
 Implemented foundation:
 
 - Organization-scoped units, categories, items, and item-specific conversions.
+- Safe catalog CSV import for spreadsheet migrations. It validates the whole file before writing, creates only missing categories and units, never overwrites an existing item, and appends an audit event.
 - Location-scoped storage locations and lots.
 - Append-only `inventory_transactions` with exact compensating reversals.
 - Lot row locking, transaction sign rules, archived-lot denial, and negative-stock prevention.

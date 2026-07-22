@@ -3,7 +3,9 @@ param([switch]$KeepData)
 $ErrorActionPreference = "Stop"
 $taskName = "PantryAssistantApp"
 Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+Unregister-ScheduledTask -TaskName "PantryAssistantTls" -Confirm:$false -ErrorAction SilentlyContinue
 Get-NetFirewallRule -DisplayName "Pantry Assistant TCP *" -ErrorAction SilentlyContinue | Remove-NetFirewallRule -ErrorAction SilentlyContinue
+Get-NetFirewallRule -DisplayName "Pantry Assistant HTTPS" -ErrorAction SilentlyContinue | Remove-NetFirewallRule -ErrorAction SilentlyContinue
 if (-not $KeepData) {
   Write-Warning "Application files and PostgreSQL databases were intentionally preserved. Create a backup before removing them manually."
 }

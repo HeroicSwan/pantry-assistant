@@ -75,7 +75,7 @@ The trusted routes are:
 - `/api/webhooks/twilio/inbound`
 - `/api/webhooks/twilio/status`
 
-The provider-neutral routes `/api/webhooks/sms/{provider}/status` and `/api/webhooks/sms/{provider}/inbound` accept normalized JSON or form payloads when the deployment's webhook relay supplies `X-Pantry-Webhook-Secret` (stored as `SMS_WEBHOOK_SECRET`). Twilio continues to use native signature verification. Provider consoles may require a small relay to add the shared secret; never disable webhook authentication.
+The provider-neutral routes `/api/webhooks/sms/{provider}/status` and `/api/webhooks/sms/{provider}/inbound` accept normalized JSON or form payloads only when the deployment's webhook relay supplies `X-Pantry-Webhook-Secret` matching that provider's dedicated `SMS_WEBHOOK_SECRET_<PROVIDER>` value. Twilio is intentionally excluded from these generic routes and continues to use native signature verification. Provider consoles may require a small relay to add the provider-specific secret; never disable webhook authentication or reuse a relay secret across providers.
 
 Both require a valid `X-Twilio-Signature`. Validation uses the exact configured public URL, sorted form parameters, HMAC-SHA1, and constant-time comparison. Forwarded host headers are not trusted. Only a minimized provider payload is retained.
 

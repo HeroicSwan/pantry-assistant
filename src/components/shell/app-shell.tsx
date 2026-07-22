@@ -8,6 +8,7 @@ import {
   FileChartColumn,
   MessageSquareText,
   ClipboardList,
+  CircleHelp,
   House,
   MapPin,
   Menu,
@@ -17,6 +18,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { ScopeSwitchers } from "@/components/shell/scope-switchers";
+import { AccessibilityPreferences } from "@/components/shell/accessibility-preferences";
 import { signOutAction } from "@/domains/auth/actions";
 import {
   can,
@@ -111,16 +113,17 @@ export function AppShell({
       icon: ShieldCheck,
       show: can(permissions, "audit.view"),
     },
+    { href: `${base}/help`, label: "Help", icon: CircleHelp, show: true },
     { href: "/profile", label: "Profile", icon: UserRound, show: true },
   ].filter((item) => item.show);
 
   const navigation = (
-    <nav aria-label="Primary" className="grid gap-1">
+    <nav aria-label="Primary" className="grid gap-1.5">
       {links.map(({ href, label, icon: Icon }) => (
         <Link
           key={href}
           href={href}
-          className="flex min-h-11 items-center gap-3 border border-transparent px-3 text-sm font-semibold hover:border-[var(--rule)] hover:bg-white"
+          className="pantry-nav-link flex min-h-11 items-center gap-3 border border-transparent px-3 text-sm font-semibold transition-[background-color,border-color,transform] hover:translate-x-0.5 hover:border-[var(--rule)] hover:bg-white"
         >
           <Icon size={18} aria-hidden />
           {label}
@@ -130,13 +133,16 @@ export function AppShell({
   );
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[300px_1fr]">
-      <aside className="hidden border-r border-[var(--rule)] bg-[var(--surface)] p-5 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
+    <div className="pantry-shell min-h-screen lg:grid lg:grid-cols-[304px_1fr]">
+      <aside className="pantry-sidebar hidden border-r border-[var(--rule)] p-5 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
         <Link
           href={base}
-          className="border-b border-[var(--ink)] pb-5 text-lg font-bold tracking-[-0.03em]"
+          className="pantry-brand-mark rounded-2xl border border-[var(--rule)] bg-white px-4 py-4 text-lg font-bold tracking-[-0.03em] transition-transform hover:-translate-y-px"
         >
-          Pantry Assistant
+          <span className="block text-[10px] font-semibold tracking-[0.2em] text-[var(--signal)] uppercase">
+            Pantry operations
+          </span>
+          <span className="mt-1 block">Pantry Assistant</span>
         </Link>
         <div className="mt-5">
           <ScopeSwitchers
@@ -147,8 +153,8 @@ export function AppShell({
             locations={access.locations}
           />
         </div>
-        <div className="mt-6 flex-1">{navigation}</div>
-        <div className="border-t border-[var(--rule)] pt-4">
+        <div className="mt-7 flex-1">{navigation}</div>
+        <div className="rounded-2xl border border-[var(--rule-soft)] bg-white/70 p-4 shadow-sm">
           <p className="truncate text-sm font-semibold">
             {profile?.displayName}
           </p>
@@ -156,22 +162,31 @@ export function AppShell({
             {profile?.email}
           </p>
           <form action={signOutAction} className="mt-3">
-            <button type="submit" className="text-sm font-semibold underline">
+            <button
+              type="submit"
+              className="text-sm font-semibold underline decoration-[var(--signal)] decoration-2 underline-offset-4"
+            >
               Sign out
             </button>
           </form>
+          <div className="mt-3">
+            <AccessibilityPreferences />
+          </div>
         </div>
       </aside>
       <div className="min-w-0">
-        <header className="sticky top-0 z-20 flex min-h-16 items-center justify-between border-b border-[var(--rule)] bg-white px-4 lg:hidden">
-          <Link href={base} className="font-bold">
+        <header className="sticky top-0 z-20 mx-3 mt-3 flex min-h-16 items-center justify-between rounded-2xl border border-[var(--rule-soft)] bg-white/90 px-4 shadow-sm backdrop-blur lg:hidden">
+          <Link href={base} className="font-bold tracking-[-0.03em]">
+            <span className="mr-2 text-[10px] tracking-[0.16em] text-[var(--signal)] uppercase">
+              PA
+            </span>
             Pantry Assistant
           </Link>
           <details className="relative">
-            <summary className="list-none border border-[var(--ink)] p-2">
+            <summary className="list-none rounded-xl border border-[var(--ink)] bg-white p-2 shadow-sm">
               <Menu size={20} aria-label="Open navigation" />
             </summary>
-            <div className="absolute right-0 mt-2 w-72 border border-[var(--ink)] bg-[var(--surface)] p-4">
+            <div className="absolute right-0 mt-2 w-72 rounded-2xl border border-[var(--rule)] bg-[var(--surface)] p-4 shadow-[var(--shadow-lift)]">
               <ScopeSwitchers
                 organizationId={access.organization.id}
                 organizationSlug={access.organization.slug}
@@ -180,10 +195,13 @@ export function AppShell({
                 locations={access.locations}
               />
               <div className="mt-4">{navigation}</div>
+              <div className="mt-4 border-t border-[var(--rule)] pt-4">
+                <AccessibilityPreferences />
+              </div>
             </div>
           </details>
         </header>
-        <div className="grid grid-cols-4 border-b border-[var(--rule)] bg-white">
+        <div className="pantry-context-rail grid grid-cols-2 sm:grid-cols-4">
           {[
             {
               label: "User",
@@ -213,7 +231,7 @@ export function AppShell({
           ].map(({ label, value, icon: Icon }, index) => (
             <div
               key={label}
-              className="min-w-0 border-r border-[var(--rule)] p-3 last:border-r-0"
+              className="pantry-context-cell min-w-0 border-r border-b border-[var(--rule-soft)] p-3 last:border-r-0 sm:border-b-0"
             >
               <div className="flex items-center gap-2">
                 <span className="tabular text-xs font-semibold text-[var(--signal)]">
@@ -228,7 +246,9 @@ export function AppShell({
             </div>
           ))}
         </div>
-        <main className="page-enter p-5 sm:p-8 lg:p-12">{children}</main>
+        <main className="pantry-main page-enter p-5 sm:mx-auto sm:w-full sm:p-8 lg:p-12">
+          {children}
+        </main>
       </div>
     </div>
   );

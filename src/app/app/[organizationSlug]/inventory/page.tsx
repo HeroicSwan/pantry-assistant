@@ -2,12 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
+import { BarcodeLookup } from "@/components/inventory/barcode-lookup";
+import { InventoryFilters } from "@/components/inventory/inventory-filters";
 import { can, requireOrganizationContext } from "@/lib/auth/access";
 import { getInventorySummary, listItemsWithBalances } from "@/domains/inventory/queries";
 import { formatQuantity } from "@/domains/inventory/format";
 
-export default async function InventoryOverviewPage({ params }: { params: Promise<{ organizationSlug: string }> }) {
+export default async function InventoryOverviewPage({ params, searchParams }: { params: Promise<{ organizationSlug: string }>; searchParams: Promise<{ q?: string; stock?: string }> }) {
   const { organizationSlug } = await params;
+  const { q, stock } = await searchParams;
   const context = await requireOrganizationContext(organizationSlug);
   if (!can(context.effectivePermissions, "inventory.view")) notFound();
 
@@ -24,7 +27,7 @@ export default async function InventoryOverviewPage({ params }: { params: Promis
 
   const [summary, items] = await Promise.all([
     getInventorySummary(context.access.organization.id, location.id),
-    listItemsWithBalances(context.access.organization.id, location.id),
+    listItemsWithBalances(context.access.organization.id, location.id, { query: q, stock: stock === "available" || stock === "needs_review" ? stock : "all" }),
   ]);
 
   return (
@@ -64,8 +67,13 @@ export default async function InventoryOverviewPage({ params }: { params: Promis
         ))}
       </section>
 
+      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.7fr)]">
+        <InventoryFilters />
+        <BarcodeLookup organizationSlug={organizationSlug} />
+      </section>
+
       <section className="grid gap-4">
-        <h2 className="text-2xl font-semibold">Items</h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-2"><h2 className="text-2xl font-semibold">Items</h2><p className="text-sm text-[var(--muted)]">{items.length} matching item{items.length === 1 ? "" : "s"}</p></div>
         {items.length === 0 ? (
           <EmptyState title="No items yet" description="An administrator defines the item catalog before stock is received." />
         ) : (

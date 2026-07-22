@@ -11,9 +11,9 @@ export default async function OnboardingPage() {
   if ((await getOrganizationAccessList()).length > 0) redirect("/");
   const profile = await getCurrentProfile();
   return (
-    <main className="min-h-screen bg-[var(--surface)]">
+    <main className="pantry-shell min-h-screen">
       <header className="grid-surface border-b border-[var(--rule)] px-6 py-8 sm:px-10 lg:px-16">
-        <p className="text-sm font-semibold">Pantry Assistant</p>
+        <p className="text-sm font-semibold"><span className="mr-2 text-[10px] uppercase tracking-[0.16em] text-[var(--signal)]">PA</span>Pantry Assistant</p>
         <div className="mt-8 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
           <h1 className="max-w-3xl text-5xl font-semibold tracking-[-0.055em] sm:text-7xl">
             Set up your organization

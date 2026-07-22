@@ -14,11 +14,12 @@ export function AuthShell({
   footer?: React.ReactNode;
 }) {
   return (
-    <main className="grid min-h-screen bg-[var(--surface)] lg:grid-cols-[minmax(280px,0.7fr)_minmax(0,1.3fr)]">
+    <main className="pantry-shell grid min-h-screen lg:grid-cols-[minmax(280px,0.7fr)_minmax(0,1.3fr)]">
       <aside className="grid-surface border-b border-[var(--rule)] p-6 lg:border-r lg:border-b-0 lg:p-10">
         <div className="flex h-full max-w-md flex-col justify-between gap-12">
-          <Link href="/" className="text-lg font-bold tracking-[-0.03em]">
-            Pantry Assistant
+          <Link href="/" className="pantry-brand-mark rounded-2xl border border-[var(--rule)] bg-white px-4 py-4 text-lg font-bold tracking-[-0.03em]">
+            <span className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--signal)]">Pantry operations</span>
+            <span className="mt-1 block">Pantry Assistant</span>
           </Link>
           <ol className="grid border-t border-[var(--ink)]">
             {scopeSteps.map((step, index) => (
@@ -42,7 +43,7 @@ export function AuthShell({
         </div>
       </aside>
       <section className="flex items-center justify-center p-6 sm:p-10 lg:p-16">
-        <div className="page-enter w-full max-w-xl border-t-4 border-[var(--signal)] bg-white p-6 sm:p-10">
+        <div className="page-enter w-full max-w-xl rounded-[1.6rem] border border-[var(--rule)] border-t-4 border-t-[var(--signal)] bg-white p-6 shadow-[var(--shadow-lift)] sm:p-10">
           <header className="mb-8 border-b border-[var(--rule)] pb-6">
             <h1 className="text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
               {title}
